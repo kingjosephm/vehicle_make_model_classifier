@@ -27,6 +27,9 @@ def main(df, outputDir, resize=400, min_veh_pixels=150, min_confidence=0.5):
         foo = df.iloc[x]
         img = cv2.imread(foo['Path'])
 
+        # Generate random hash
+        hex = secrets.token_hex(nbytes=2)
+
         # Crop separately for each vehicle in image
         for i in range(foo['Nr Veh']):
 
@@ -46,12 +49,18 @@ def main(df, outputDir, resize=400, min_veh_pixels=150, min_confidence=0.5):
             # Resize
             cropped = cv2.resize(cropped, (resize, resize), interpolation=cv2.INTER_LINEAR)
 
-            # Generate random hash
-            hex = secrets.token_hex(nbytes=2)
+            # Image name assuming only one vehicle in image that passes muster
             img_name = '_'.join(foo['Path'].split('/')[-4:-1])
 
-            # Output
-            cv2.imwrite(os.path.join(outputDir, img_name+'_'+hex+'.png'), cropped)
+            # Output if >1 vehicle in image
+            fullPath = os.path.join(outputDir, img_name+'_'+hex+'.png')
+            if os.path.exists(fullPath):  # if >1 vehicle already written out
+                os.rename(fullPath, os.path.join(outputDir, img_name+'_'+hex+'_'+str(i-1)+'.png'))
+                cv2.imwrite(os.path.join(outputDir, img_name+'_'+hex+'_'+str(i)+'.png'), cropped)
+
+            # Output otherwise
+            else:
+                cv2.imwrite(fullPath, cropped)
 
 if __name__ == '__main__':
 
@@ -71,4 +80,4 @@ if __name__ == '__main__':
     # Output directory
     outputDir = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/cropped'
 
-    main(df, outputDir, resize=400, min_veh_pixels=150, min_confidence=0.5)
+    main(df, outputDir, resize=400, min_veh_pixels=225, min_confidence=0.5)
