@@ -3,33 +3,37 @@ import os
 import shutil
 pd.set_option('display.max_columns', 500)
 
-if __name__ == '__main__':
-
-    path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data'
+def fix_dir_structure(rootDir):
 
     # Renames subdirs, removing vehicle make from subdir name
     # This was done after manually moving all make/model subdirs into parent make dir
-    dirs = sorted([i for i in os.listdir(path) if ".DS_Store" not in i])
+    dirs = sorted([i for i in os.listdir(rootDir) if ".DS_Store" not in i])
     for i in dirs:
         parent = os.path.join(path, i).split('/')[-1] # car brand
-        for j in sorted([i for i in os.listdir(os.path.join(path, i)) if ".DS_Store" not in i]):
+        for j in sorted([i for i in os.listdir(os.path.join(rootDir, i)) if ".DS_Store" not in i]):
             renamed = ' '.join(j.split('_')).replace(parent, '').strip()
-            os.rename(os.path.join(path, i, j), os.path.join(path, i, renamed))
+            os.rename(os.path.join(rootDir, i, j), os.path.join(rootDir, i, renamed))
     del i, parent, j
 
 
     # Remove years from model subdir title
-    dirs = sorted([i for i in os.listdir(path) if ".DS_Store" not in i])
+    dirs = sorted([i for i in os.listdir(rootDir) if ".DS_Store" not in i])
     for i in dirs:
-        for j in sorted([i for i in os.listdir(os.path.join(path, i)) if ".DS_Store" not in i]):
-            current = os.path.join(path, i, j)
-            subdir = os.path.join(path, i, j, j[-9:])
+        for j in sorted([i for i in os.listdir(os.path.join(rootDir, i)) if ".DS_Store" not in i]):
+            current = os.path.join(rootDir, i, j)
+            subdir = os.path.join(rootDir, i, j, j[-9:])
             os.makedirs(subdir, exist_ok=True) # create new empty year subdir
             for file in [i for i in os.listdir(current) if '.jpg' in i or '.png' in i]:
                 shutil.move(os.path.join(current, file), subdir)
-            os.rename(current, os.path.join(path, i, j[:-10]))
+            os.rename(current, os.path.join(rootDir, i, j[:-10]))
     del i, j
 
+
+if __name__ == '__main__':
+
+    path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data'
+
+    #fix_dir_structure(path)
 
     # Create pd.DataFrame of vehicle make models based on directory structure
     lst = []
