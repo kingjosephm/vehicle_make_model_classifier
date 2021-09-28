@@ -4,7 +4,11 @@ import os
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 from time import time
+import caffeine
 
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.max_colwidth', None)
+caffeine.on(display=True)
 
 def detect_cars(path, model, min_confidence=0.5):
     """
@@ -20,9 +24,9 @@ def detect_cars(path, model, min_confidence=0.5):
 
     coordinates = results.xyxy[0].numpy()
 
-    # Keep only car objects in picture, i.e. == 2.0
+    # Keep only: 2 (cars), 5 (bus), 7 (truck)
     # Note - results.name is a list containing the string names and coordinates[:, -1] is the list index of that object
-    coordinates = coordinates[coordinates[:, -1] == 2.0]
+    coordinates = coordinates[(coordinates[:, -1] == 2.0) | (coordinates[:, -1] == 5.0) | (coordinates[:, -1] == 7.0)]
 
     # Keep only cars above given confidence threshold
     coordinates = coordinates[coordinates[:, 4] >= min_confidence]
@@ -52,3 +56,5 @@ if __name__ == '__main__':
     df['Bboxes'] = pd.Series(output)
 
     df.to_csv(os.path.join(path, 'Vehicle Make Model Directory Bboxes.csv'), index=False)
+
+    caffeine.off()
