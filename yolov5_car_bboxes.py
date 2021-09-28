@@ -51,4 +51,4 @@ if __name__ == '__main__':
         count += 1
     df['Bboxes'] = pd.Series(output)
 
-    df.to_csv(os.path.join(path, 'Vehicle Make Model Directory Bboxes.csv'))
+    df.to_csv(os.path.join(path, 'Vehicle Make Model Directory Bboxes.csv'), index=False)
