@@ -3,20 +3,19 @@ import cv2
 import os
 import ast
 import numpy as np
-import secrets
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_colwidth', None)
 
 
-def main(df, outputDir, resize=400, min_veh_pixels=150, min_confidence=0.5):
+def main(df, outputDir, resize=400, min_area=50625, min_confidence=0.5):
     """
     Loops through all image paths in dataframe `df`, restricts to bounding box coordinates in `df['Bboxes']`,
         resizes image and outputs to directory.
     :param df: pd.DataFrame
     :param outputDir: str, path to output each image
     :param resize: int, w x h pixel dimensions of final image
-    :param min_veh_pixels: int, minimimum w x h pixel dimensions for a vehicle to be output
+    :param min_area: int, minimimum w x h pixel dimensions for a vehicle to be output, default 225*225
     :param min_confidence: float, minimum confidence threshold of vehicle output
     :return:
     """
@@ -27,40 +26,31 @@ def main(df, outputDir, resize=400, min_veh_pixels=150, min_confidence=0.5):
         foo = df.iloc[x]
         img = cv2.imread(foo['Path'])
 
-        # Generate random hash
-        hex = secrets.token_hex(nbytes=2)
+        # Skip entire image if none of object's confidence above threshold
+        if (np.array(foo['Bboxes'])[:, 4] < min_confidence).all():
+            continue
+        else: # restrict to object above confidence thresh
+            arr = np.array(foo['Bboxes'])
+            arr = arr[arr[:, 4] >= min_confidence][:, :4].astype(int)
 
-        # Crop separately for each vehicle in image
-        for i in range(foo['Nr Veh']):
+        # Assume images well centered, so pick largest area object if >1 per image
+        area = (arr[:, 3] - arr[:, 1]) * (arr[:, 2] - arr[:, 0])  # Format: xyxy
+        if (area < min_area).all():  # if none adequately sized
+            continue
+        else:
+            arr = arr[np.argmax(area)]
 
-            # Skip vehicle if below minimum confidence threshold
-            if foo['Bboxes'][i][4] < min_confidence:
-                continue
+        # Crop to bounding box of vehicle
+        cropped = img[arr[1]:arr[3], arr[0]:arr[2]]
 
-            bbox = np.array([int(j) for j in foo['Bboxes'][i][:4]]) # xyxy format, 5th element is confidence level
+        # Resize
+        cropped = cv2.resize(cropped, (resize, resize), interpolation=cv2.INTER_LINEAR)
 
-            # Skip if number of pixels in car image is really small
-            if (bbox[3]-bbox[1] < min_veh_pixels) or (bbox[2]-bbox[0] < min_veh_pixels):
-                continue
+        # Image name
+        img_name = '_'.join(foo['Path'].split('/')[-4:-1]) + '_' + str(x) + '.png'
 
-            # Crop to bounding box of vehicle
-            cropped = img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
-
-            # Resize
-            cropped = cv2.resize(cropped, (resize, resize), interpolation=cv2.INTER_LINEAR)
-
-            # Image name assuming only one vehicle in image that passes muster
-            img_name = '_'.join(foo['Path'].split('/')[-4:-1])
-
-            # Output if >1 vehicle in image
-            fullPath = os.path.join(outputDir, img_name+'_'+hex+'.png')
-            if os.path.exists(fullPath):  # if >1 vehicle already written out
-                os.rename(fullPath, os.path.join(outputDir, img_name+'_'+hex+'_'+str(i-1)+'.png'))
-                cv2.imwrite(os.path.join(outputDir, img_name+'_'+hex+'_'+str(i)+'.png'), cropped)
-
-            # Output otherwise
-            else:
-                cv2.imwrite(fullPath, cropped)
+        # Output image
+        cv2.imwrite(os.path.join(outputDir, img_name), cropped)
 
 if __name__ == '__main__':
 
@@ -80,4 +70,4 @@ if __name__ == '__main__':
     # Output directory
     outputDir = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/cropped'
 
-    main(df, outputDir, resize=400, min_veh_pixels=225, min_confidence=0.5)
+    main(df, outputDir, resize=400, min_area=50625, min_confidence=0.5)
