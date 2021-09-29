@@ -42,6 +42,8 @@ if __name__ == '__main__':
     # Read in pd.DataFrame
     path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier'
     df = pd.read_csv(os.path.join(path, 'Vehicle Make Model Directory.csv'))
+
+    # Make path absolute
     df['Path'] = df['Path'].apply(lambda x: os.path.join(path, 'data', x))
 
     start = time()
@@ -55,6 +57,9 @@ if __name__ == '__main__':
         count += 1
     df['Bboxes'] = pd.Series(output)
 
-    df.to_csv(os.path.join(path, 'Vehicle Make Model Directory Bboxes.csv'), index=False)
+    # Make path again relative
+    df['Path'] = df.Path.str.split('/').apply(lambda x: x[-4:]).apply(lambda x: '/'.join(x))
+
+    df.to_csv('Vehicle Make Model Directory Bboxes.csv', index=False)  # Output to working dir
 
     caffeine.off()
