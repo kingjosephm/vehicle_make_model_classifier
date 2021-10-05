@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import re
+import json
 import numpy as np
 from shutil import copy, rmtree
 
@@ -32,6 +33,9 @@ if __name__ == '__main__':
     if os.path.exists(output_path):  # delete dir if exists
         rmtree(output_path)
 
+    with open('stanford_model_fixes.json') as f:
+        model_fixes = json.load(f)
+
     #####################################################
     #####           Stanford Car Dataset            #####
     #####################################################
@@ -40,18 +44,35 @@ if __name__ == '__main__':
 
     df = create_paths(stanford_data)
 
-    # Create columns
+    # Make
     df['Make'] = df['Orig Path'].apply(lambda x: x.split('/')[-2].split(' ')[0])
     df['Make'] = np.where(df['Make'] == 'Aston', 'Aston Martin', df['Make'])
     df['Make'] = np.where(df['Make'] == 'AM', 'AM General', df['Make'])
+    df['Make'] = np.where(df['Make'] == 'Land', 'Land Rover', df['Make'])
+
+    # Model
     df['Model'] = df['Orig Path'].apply(lambda x: ' '.join(x.split('/')[-2].split(' ')[1:-1]))
     df['Model'] = df['Model'].str.replace('Martin', '').str.replace('General Hummer', 'Hummer')
-    df['Year'] = df['Orig Path'].apply(lambda x: x.split('/')[-2].split(' ')[-1]).astype(int)
+    df['Model'] = df['Model'].str.replace('Rover LR2', 'LR2').str.replace('Rover Range Rover', 'Range Rover')
+    df['Model'] = df['Model'].str.lower()  # Easier to standardize with vmmr dataset
+
+    for key, val in model_fixes.items():
+        df['Model'] = df['Model'].apply(lambda x: x.replace(key, val) if key in x else x)
+        df['Model'] = df['Model'].apply(lambda x: ' '.join(x.split()))
+
+    # Remove whitespace
     for col in ['Make', 'Model']:
-        df[col] = df[col].str.strip()  # Remove whitespace, if any
+        df[col] = df[col].apply(lambda x: ' '.join([i for i in x.split()]))
+
+
+    # Fix multiple versions of Audi tt
+    df['Model'] = np.where((df.Make == 'Audi') & (df['Model'] == 'tt rs'), 'tt', df['Model'])
+    df['Model'] = np.where((df.Make == 'Audi') & (df['Model'] == 'tts'), 'tt', df['Model'])
+
+    # Year
+    df['Year'] = df['Orig Path'].apply(lambda x: x.split('/')[-2].split(' ')[-1]).astype(int)
 
     df = df.sort_values(by=['Make', 'Model', 'Year']).reset_index(drop=True)
-    df['Model'] = df['Model'].str.lower()
 
     lst = []
     # Move files and rename
@@ -69,7 +90,6 @@ if __name__ == '__main__':
     df = df[['Make', 'Model', 'Year', 'Orig Path', 'New Path']]
 
     df.to_csv(os.path.join(stanford_data, '../', 'stanford_car_directory.csv'), index=False)
-    del df, lst
 
     #####################################################
     #####                   VMMRdb                  #####
@@ -77,60 +97,78 @@ if __name__ == '__main__':
 
     vmmr = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/VMMRdb'
 
-    df = create_paths(vmmr)
+    df2 = create_paths(vmmr)
 
     # Note - columns standardized to Stanford dataset
 
     # Make
-    df['Make'] = df['Orig Path'].apply(lambda x: x.split('/')[-2].split(' ')[0])
-    df['Make'] = df['Make'].apply(lambda x: x.split('_')[0] if len(x.split('_')) else x)
-    df['Make'] = np.where(df['Make'] == 'mercedes', 'Mercedes-Benz', df['Make'])
-    df['Make'] = np.where(df['Make'] == 'aston', 'Aston Martin', df['Make'])
-    df['Make'] = np.where(df['Make'] == 'can', 'Can-Am', df['Make'])
-    df['Make'] = np.where(df['Make'] == 'am', 'AM General', df['Make'])
-    df['Make'] = np.where(df['Make'] == 'alfa', 'Alfa Romeo', df['Make'])
-    df['Make'] = np.where(df['Make'] == 'rollsroyce', 'Rolls-Royce', df['Make'])
+    df2['Make'] = df2['Orig Path'].apply(lambda x: x.split('/')[-2].split(' ')[0])
+    df2['Make'] = df2['Make'].apply(lambda x: x.split('_')[0] if len(x.split('_')) else x)
+    df2['Make'] = np.where(df2['Make'] == 'mercedes', 'Mercedes-Benz', df2['Make'])
+    df2['Make'] = np.where(df2['Make'] == 'aston', 'Aston Martin', df2['Make'])
+    df2['Make'] = np.where(df2['Make'] == 'can', 'Can-Am', df2['Make'])
+    df2['Make'] = np.where(df2['Make'] == 'am', 'AM General', df2['Make'])
+    df2['Make'] = np.where(df2['Make'] == 'alfa', 'Alfa Romeo', df2['Make'])
+    df2['Make'] = np.where(df2['Make'] == 'rollsroyce', 'Rolls-Royce', df2['Make'])
     fixed = ['Mercedes-Benz', 'Aston Martin', 'Can-Am', 'AM General', 'Alfa Romeo', 'Rolls-Royce']
 
-    # All caps
     allcaps = ['ram', 'bmw', 'amc', 'mg', 'mini', 'gmc', 'fiat']
     for x in allcaps:
-        df['Make'] = np.where(df['Make'] == x, x.upper(), df['Make'])
+        df2['Make'] = np.where(df2['Make'] == x, x.upper(), df2['Make'])
 
-    # Upper case first letter
-    remainders = [i for i in df.Make.unique().tolist() if i not in fixed+[i.upper() for i in allcaps]]
+    remainders = [i for i in df2.Make.unique().tolist() if i not in fixed+[i.upper() for i in allcaps]]
     for x in remainders:
-        df['Make'] = np.where(df['Make'] == x, x.capitalize(), df['Make'])
+        df2['Make'] = np.where(df2['Make'] == x, x.capitalize(), df2['Make'])
 
     # Year
-    df['Year'] = df['Orig Path'].apply(lambda x: x.split('/')[-2][-4:]).astype(int)
-    df['Year'] = np.where(df.Year == 1900, 1990, df['Year'])  # Mistake in coding 1990 as 1900
-    df['Year'] = np.where(df.Year == 1908, 1998, df['Year'])  # Mistake
+    df2['Year'] = df2['Orig Path'].apply(lambda x: x.split('/')[-2][-4:]).astype(int)
+    df2['Year'] = np.where(df2.Year == 1900, 1990, df2['Year'])  # Mistake in coding 1990 as 1900
+    df2['Year'] = np.where(df2.Year == 1908, 1998, df2['Year'])  # Mistake
 
     # Model
-    foo = df['Orig Path'].apply(lambda x: x.split('/')[-2][:-5])
+    foo = df2['Orig Path'].apply(lambda x: x.split('/')[-2][:-5])
     foo = foo.apply(lambda x: ' '.join(re.split(r'\s|_', x, maxsplit=0)))
-    make_unformatted = df['Make'].apply(lambda x: ' '.join(x.split('-')).lower())
+    make_unformatted = df2['Make'].apply(lambda x: ' '.join(x.split('-')).lower())
 
     lst = []
     for i in foo.index:
         tmp = ' '.join([j for j in foo[i].split() if j not in make_unformatted[i].split()])
         lst.append(tmp)
-    df['Model'] = pd.Series(lst)
+    df2['Model'] = pd.Series(lst)
+
+    for col in ['Make', 'Model']:
+        df2[col] = df2[col].str.strip()  # Remove whitespace, if any
+
+    for key, val in model_fixes.items():
+        df2['Model'] = df2['Model'].apply(lambda x: x.replace(key, val) if key in x else x)
+        df2['Model'] = df2['Model'].apply(lambda x: ' '.join(x.split()))
+
+
+    for make in sorted(df2['Make'].unique()):
+        for model in sorted(df2.loc[df2.Make == make]['Model'].unique()):
+            print(make, model)
+
+
+    sorted(df2.loc[df2.Make=='Mercedes-Benz']['Model'].unique())
+
+    # Fix BMW
+    for x in df2.loc[df2.Make == '']['Model'].unique():
+        pass
+
 
     # Move files to new directories
     lst = []
-    for i in range(len(df)):
-        output = os.path.join(output_path, df['Make'].iloc[i], df['Model'].iloc[i], str(df['Year'].iloc[i]))
+    for i in range(len(df2)):
+        output = os.path.join(output_path, df2['Make'].iloc[i], df2['Model'].iloc[i], str(df2['Year'].iloc[i]))
         os.makedirs(output, exist_ok=True)  # will just add if already exits
-        copy(df['Orig Path'].iloc[i], output)  # copy file to new dest with orig name
-        old = os.path.join(output, df['Orig Path'].iloc[i].split('/')[-1])  # old name
-        new = os.path.join(output, 'vmmr' + '_' + str(i) + '.' + df['Orig Path'].iloc[i].split('/')[-1].split('.')[-1])
+        copy(df2['Orig Path'].iloc[i], output)  # copy file to new dest with orig name
+        old = os.path.join(output, df2['Orig Path'].iloc[i].split('/')[-1])  # old name
+        new = os.path.join(output, 'vmmr' + '_' + str(i) + '.' + df2['Orig Path'].iloc[i].split('/')[-1].split('.')[-1])
         os.rename(old, new)
         lst.append(new)
 
-    df = pd.concat([df, pd.DataFrame(lst, columns=['New Path'])], axis=1)
+    df2 = pd.concat([df2, pd.DataFrame(lst, columns=['New Path'])], axis=1)
 
-    df = df[['Make', 'Model', 'Year', 'Orig Path', 'New Path']]
+    df2 = df2[['Make', 'Model', 'Year', 'Orig Path', 'New Path']]
 
-    df.to_csv(os.path.join(stanford_data, '../', 'vmmr_car_directory.csv'), index=False)
+    df2.to_csv(os.path.join(stanford_data, '../', 'vmmr_car_directory.csv'), index=False)
