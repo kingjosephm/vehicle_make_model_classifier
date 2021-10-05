@@ -34,7 +34,7 @@ if __name__ == '__main__':
         rmtree(output_path)
 
     with open('stanford_model_fixes.json') as f:
-        model_fixes = json.load(f)
+        stanford_model_fixes = json.load(f)
 
     #####################################################
     #####           Stanford Car Dataset            #####
@@ -56,9 +56,9 @@ if __name__ == '__main__':
     df['Model'] = df['Model'].str.replace('Rover LR2', 'LR2').str.replace('Rover Range Rover', 'Range Rover')
     df['Model'] = df['Model'].str.lower()  # Easier to standardize with vmmr dataset
 
-    for key, val in model_fixes.items():
-        df['Model'] = df['Model'].apply(lambda x: x.replace(key, val) if key in x else x)
-        df['Model'] = df['Model'].apply(lambda x: ' '.join(x.split()))
+    for key, val in stanford_model_fixes.items():
+        df['Model'] = df['Model'].str.replace(rf'\b{key}\b', val, regex=True)
+        df['Model'] = df['Model'].apply(lambda x: ' '.join(x.split())) # remove whitespace, if above created any
 
     # Remove whitespace
     for col in ['Make', 'Model']:
@@ -68,6 +68,10 @@ if __name__ == '__main__':
     # Fix multiple versions of Audi tt
     df['Model'] = np.where((df.Make == 'Audi') & (df['Model'] == 'tt rs'), 'tt', df['Model'])
     df['Model'] = np.where((df.Make == 'Audi') & (df['Model'] == 'tts'), 'tt', df['Model'])
+
+    for make in sorted(df.Make.unique()):
+        for model in sorted(df.loc[df.Make==make]['Model'].unique()):
+            print(make, model)
 
     # Year
     df['Year'] = df['Orig Path'].apply(lambda x: x.split('/')[-2].split(' ')[-1]).astype(int)
@@ -96,6 +100,9 @@ if __name__ == '__main__':
     #####################################################
 
     vmmr = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/VMMRdb'
+
+    with open('vmmr_model_fixes.json') as f:
+        vmmr_model_fixes = json.load(f)
 
     df2 = create_paths(vmmr)
 
@@ -139,21 +146,42 @@ if __name__ == '__main__':
     for col in ['Make', 'Model']:
         df2[col] = df2[col].str.strip()  # Remove whitespace, if any
 
-    for key, val in model_fixes.items():
-        df2['Model'] = df2['Model'].apply(lambda x: x.replace(key, val) if key in x else x)
-        df2['Model'] = df2['Model'].apply(lambda x: ' '.join(x.split()))
+    for key, val in vmmr_model_fixes.items():
+        df2['Model'] = df2['Model'].str.replace(rf'\b{key}\b', val, regex=True)
+        df2['Model'] = df2['Model'].apply(lambda x: ' '.join(x.split())) # remove whitespace, if above created any
+
+    # GMC trucks
+    for x in ['c1000', 'c1500', 'c2500', 'c3500', 'c4500']:
+        df2['Model'] = np.where((df2.Make == 'GMC') & (df2.Model == x), 'c-series', df2['Model'])
+    for x in ['c5500', 'c7500']:
+        df2['Model'] = np.where((df2.Make == 'GMC') & (df2.Model == x), 'c6500', df2['Model'])
+    for x in ['k10', 'k20', 'k15', 'k1500', 'k2500', 'k3500']:
+        df2['Model'] = np.where((df2.Make == 'GMC') & (df2.Model == x), 'k-series', df2['Model'])
+
+    # Ford trucks
+    for x in ['f100', 'f150', 'f250', 'f350', 'f450']:
+        df2['Model'] = np.where((df2.Make == 'Ford') & (df2.Model == x), 'f-series', df2['Model'])
+    for x in ['w100', 'e250', 'e350', 'e450']:
+        df2['Model'] = np.where((df2.Make == 'Ford') & (df2.Model == x), 'e-series', df2['Model'])
+
+    # Dodge trucks
+    for x in ['w100', 'w150', 'w200', 'w250', 'w350', 'd100', 'd150', 'd200', 'd250', 'd350']:  # identical except `w` is 4-wheel drive, `d` is 2
+        df2['Model'] = np.where((df2.Make == 'Dodge') & (df2.Model == x), 'w-series', df2['Model'])
+    for x in ['ram 1500', 'ram 2500', 'ram 3500', 'ram 4500', 'ram 5500']:
+        df2['Model'] = np.where((df2.Make == 'Dodge') & (df2.Model == x), 'ram', df2['Model'])
+
+    # Chevy trucks
+    for x in ['v10', 'v20', 'k10', 'k20', 'c10', 'c20', 'c30', 'c-k1500', 'c-k2500', 'c-k3500']:  # again, 2- vs 4-wheel drive
+        df2['Model'] = np.where((df2.Make == 'Chevrolet') & (df2.Model == x), 'ck-series', df2['Model'])
+    for x in ['g10', 'g20', 'g30']:
+        df2['Model'] = np.where((df2.Make == 'Chevrolet') & (df2.Model == x), 'g-series', df2['Model'])
+    for x in ['c5500', 'c60', 'c65']:
+        df2['Model'] = np.where((df2.Make == 'Chevrolet') & (df2.Model == x), 'c6500', df2['Model'])
 
 
     for make in sorted(df2['Make'].unique()):
         for model in sorted(df2.loc[df2.Make == make]['Model'].unique()):
             print(make, model)
-
-
-    sorted(df2.loc[df2.Make=='Mercedes-Benz']['Model'].unique())
-
-    # Fix BMW
-    for x in df2.loc[df2.Make == '']['Model'].unique():
-        pass
 
 
     # Move files to new directories
