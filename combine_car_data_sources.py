@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     df = df[['Make', 'Model', 'Year', 'Orig Path', 'New Path']]
 
-    df.to_csv(os.path.join(stanford_data, '../', 'stanford_car_directory.csv'), index=False)
+    df.to_csv('./data/stanford_car_directory.csv', index=False)
 
     #####################################################
     #####                   VMMRdb                  #####
@@ -256,4 +256,4 @@ if __name__ == '__main__':
 
     df2 = df2[['Make', 'Model', 'Year', 'Orig Path', 'New Path']]
 
-    df2.to_csv(os.path.join(stanford_data, '../', 'vmmr_car_directory.csv'), index=False)
+    df2.to_csv('./data/vmmr_car_directory.csv', index=False)
