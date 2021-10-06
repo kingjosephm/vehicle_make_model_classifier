@@ -37,7 +37,7 @@ if __name__ == '__main__':
     #####           Stanford Car Dataset            #####
     #####################################################
 
-    with open('stanford_model_fixes.json') as f:
+    with open('utils/stanford_model_fixes.json') as f:
         stanford_model_fixes = json.load(f)
 
     stanford_data = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/stanford_car_data'
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
     vmmr = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/VMMRdb'
 
-    with open('vmmr_model_fixes.json') as f:
+    with open('utils/vmmr_model_fixes.json') as f:
         vmmr_model_fixes = json.load(f)
 
     df2 = create_paths(vmmr)

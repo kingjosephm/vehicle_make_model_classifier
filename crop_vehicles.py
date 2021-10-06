@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     # Read data
     rootDir = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier'
-    df = pd.read_csv(os.path.join(rootDir, 'Vehicle Make Model Directory Bboxes.csv'))
+    df = pd.read_csv(os.path.join(rootDir, 'data/Vehicle Make Model Directory Bboxes.csv'))
 
     # Convert str representation of bbox list to list
     df['Bboxes'] = df['Bboxes'].apply(lambda x: list(ast.literal_eval(x)))
