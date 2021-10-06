@@ -60,6 +60,6 @@ if __name__ == '__main__':
     # Make path again relative
     df['Path'] = df.Path.str.split('/').apply(lambda x: x[-4:]).apply(lambda x: '/'.join(x))
 
-    df.to_csv('Vehicle Make Model Directory Bboxes.csv', index=False)  # Output to working dir
+    df.to_csv('./data/Vehicle Make Model Directory Bboxes.csv', index=False)  # Output to working dir
 
     caffeine.off()

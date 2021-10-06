@@ -239,7 +239,7 @@ if __name__ == '__main__':
     merged = make_models_stanford.merge(make_models_vmmr, indicator=True, how='outer').sort_values(by=['Make', 'Model']).reset_index(drop=True)
     merged._merge = np.where(merged._merge=='right_only', 'vmmr', merged._merge)
     merged._merge = np.where(merged._merge == 'left_only', 'stanford', merged._merge)
-    merged.to_csv('stanford_vmmr_make_models.csv', index=False)
+    merged.to_csv('./data/stanford_vmmr_unique_make_models.csv', index=False)
 
     # Move files to new directories
     lst = []
