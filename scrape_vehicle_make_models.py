@@ -9,6 +9,7 @@ from selenium import webdriver
 import pandas as pd
 import caffeine
 import json
+import shutil
 
 pd.set_option('display.max_columns', 100)
 
@@ -114,72 +115,86 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, sleep_b
 
     return image_urls
 
-def search_and_download(query, output_path, number_images=5):
+def search_and_download(wd, query, output_path, number_images=5):
 
-    with webdriver.Chrome() as wd:
-        res = fetch_image_urls(
-            query,
-            number_images,
-            wd=wd,
-        )
+    res = fetch_image_urls(
+        query,
+        number_images,
+        wd=wd,
+    )
 
-        if res is not None:
+    if res is not None:
 
-            # Save image sources
-            if os.path.exists(os.path.join(output_path, 'image_sources.json')):
-                with open(os.path.join(output_path, 'image_sources.json'), 'rb') as j:
-                    image_sources = json.load(j)
-            else:
-                image_sources = {}
+        # Save image sources
+        if os.path.exists(os.path.join(output_path, 'image_sources.json')):
+            with open(os.path.join(output_path, 'image_sources.json'), 'rb') as j:
+                image_sources = json.load(j)
+        else:
+            image_sources = {}
 
-            for url in res:
-                try:
-                    print("Getting image")
-                    with timeout(2):
-                        image_content = requests.get(url, verify=False).content
+        for url in res:
+            try:
+                print("Getting image")
+                with timeout(2):
+                    image_content = requests.get(url, verify=False).content
 
-                except Exception as e:
-                    print(f"ERROR - Could not download {url} - {e}")
+            except Exception as e:
+                print(f"ERROR - Could not download {url} - {e}")
 
-                try:
-                    image_file = io.BytesIO(image_content)
-                    image = Image.open(image_file).convert("RGB")
-                    file_path = os.path.join(
-                        output_path, hashlib.sha1(image_content).hexdigest()[:10] + ".jpg"
-                    )
-                    with open(file_path, "wb") as f:
-                        image.save(f, "JPEG", quality=85)
-                    print(f"SUCCESS - saved {url} - as {file_path}")
+            try:
+                image_file = io.BytesIO(image_content)
+                image = Image.open(image_file).convert("RGB")
+                file_path = os.path.join(
+                    output_path, hashlib.sha1(image_content).hexdigest()[:10] + ".jpg"
+                )
+                with open(file_path, "wb") as f:
+                    image.save(f, "JPEG", quality=85)
+                print(f"SUCCESS - saved {url} - as {file_path}")
 
-                    image_sources[file_path.split('/')[-1]] = url
+                image_sources[file_path.split('/')[-1]] = url
 
-                except Exception as e:
-                    print(f"ERROR - Could not save {url} - {e}")
+            except Exception as e:
+                print(f"ERROR - Could not save {url} - {e}")
 
-                with open(os.path.join(output_path, 'image_sources.json'), 'w') as j:
-                    json.dump(image_sources, j)
-            else:
-                print(f"Failed to return links for term: {query}")
+            with open(os.path.join(output_path, 'image_sources.json'), 'w') as j:
+                json.dump(image_sources, j)
+        else:
+            print(f"Failed to return links for term: {query}")
 
 if __name__ == '__main__':
 
     df = pd.read_csv('./data/make_model_database_mod.csv')
     rootOutput = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
 
+    number_images = 100
+
     # Remove vehicle make-model-year rows if dir already exists on disk (in case successfully ran previously)
     lst = []
     for subdir, dirs, files in os.walk(rootOutput):
         for file in [i for i in files if 'jpg' in i or 'png' in i]:
-            lst.append('/'.join(os.path.join(subdir, file).split('/')[-4:]))
+            lst.append('/'.join(os.path.join(subdir, file).split('/')[-4:]))  # does not count empty subdirectories
     foo = pd.DataFrame(lst, columns=["Path"])
     foo['Make'] = foo['Path'].apply(lambda x: x.split('/')[0])
     foo['Model'] = foo['Path'].apply(lambda x: x.split('/')[1])
     foo['Year'] = foo['Path'].apply(lambda x: x.split('/')[2]).astype(int)
+    foo['dir'] = foo['Path'].apply(lambda x: '/'.join(x.split('/')[:-1]))
+
+    # See if any incomplete, i.e. ~30 less than number of images desired
+    foo['count'] = foo.groupby(['Make', 'Model', 'Year'])['Path'].transform('count')
+    incomplete_dirs = foo.loc[foo['count'] < number_images-30]['dir'].drop_duplicates().tolist()
+    if incomplete_dirs:
+        for x in incomplete_dirs:
+            shutil.rmtree(os.path.join(rootOutput, x))
+            foo = foo.loc[foo['dir'] != x].reset_index(drop=True)
+
     foo = foo[['Make', 'Model', 'Year']].drop_duplicates().reset_index(drop=True)
 
     df = df.merge(foo, on=['Make', 'Model', 'Year'], how='outer', indicator=True)
     df = df.loc[df._merge == 'left_only'].reset_index(drop=True)
     del df['_merge']
+
+    wd = webdriver.Chrome()
+    wd.get("https://google.com")
 
     for i in range(len(df)):
         query = df.iloc[i, 0] + ' ' + df.iloc[i, 1] + ' ' + df.iloc[i, 3] + ' ' + str(df.iloc[i, 4])
@@ -187,6 +202,6 @@ if __name__ == '__main__':
         output_path = os.path.join(rootOutput, df.iloc[i, 0], df.iloc[i, 2], str(df.iloc[i, 4]))
         os.makedirs(output_path, exist_ok=True)
 
-        search_and_download(query, output_path, number_images=100)
+        search_and_download(wd, query, output_path, number_images=100)
 
     caffeine.off()
