@@ -5,7 +5,7 @@ pd.set_option('display.max_columns', 500)
 
 if __name__ == '__main__':
 
-    df = pd.read_csv('./data/make_model_database.csv')
+    df = pd.read_csv('make_model_database.csv')
 
     with open('utils/make_modeL_database_clean.json') as f:
         fixes = json.load(f)

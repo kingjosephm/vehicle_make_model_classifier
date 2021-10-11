@@ -163,7 +163,7 @@ def search_and_download(wd, query, output_path, number_images=5):
 
 if __name__ == '__main__':
 
-    df = pd.read_csv('./data/make_model_database_mod.csv')
+    df = pd.read_csv('make_model_database_mod.csv')
     rootOutput = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
 
     number_images = 100
