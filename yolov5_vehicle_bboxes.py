@@ -1,10 +1,10 @@
 import torch
 import pandas as pd
-import os
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 from time import time
 import caffeine
+import os
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_colwidth', None)
@@ -32,6 +32,19 @@ def detect_cars(path, model, min_confidence=0.5):
     coordinates = coordinates[coordinates[:, 4] >= min_confidence]
     return coordinates[:, 0:5].tolist()
 
+def compile_image_directory(rootDir):
+
+    lst = []
+    for subdir, dirs, files in os.walk(rootDir):
+        for file in [i for i in files if 'jpg' in i or 'png' in i]:
+            lst.append('/'.join(os.path.join(subdir, file).split('/')[-4:]))  # does not count empty subdirectories
+    df = pd.DataFrame(lst, columns=["Orig Path"])
+    df['Make'] = df['Orig Path'].apply(lambda x: x.split('/')[0])
+    df['Model'] = df['Orig Path'].apply(lambda x: x.split('/')[1])
+    df['Year'] = df['Orig Path'].apply(lambda x: x.split('/')[2]).astype(int)
+    df['Orig Path'] = '/'.join(rootDir.split('/')[:-1]) + '/' + df['Orig Path']
+
+    return df[['Make', 'Model', 'Year', 'Orig Path']].sort_values(by=['Make', 'Model', 'Year']).reset_index(drop=True)
 
 
 if __name__ == '__main__':
@@ -39,27 +52,23 @@ if __name__ == '__main__':
     # Read in model
     model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
-    # Read in pd.DataFrame
-    path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier'
-    df = pd.read_csv(os.path.join(path, 'Vehicle Make Model Directory.csv'))
+    rootDir = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
 
-    # Make path absolute
-    df['Path'] = df['Path'].apply(lambda x: os.path.join(path, 'data', x))
+    df = compile_image_directory(rootDir)
 
     start = time()
 
     output = []
     count = 0
-    for i in df['Path']:
+    for i in df['Orig Path']:
         output.append(detect_cars(i, model, min_confidence=0.5))
         if (count % 1000 == 0) and (count > 0):
             print(f"Cumulative time after {count} images: {time() - start:.2f} sec\n")
         count += 1
     df['Bboxes'] = pd.Series(output)
 
-    # Make path again relative
-    df['Path'] = df.Path.str.split('/').apply(lambda x: x[-4:]).apply(lambda x: '/'.join(x))
+    outputDir = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories'
 
-    df.to_csv('./data/Vehicle Make Model Directory Bboxes.csv', index=False)  # Output to working dir
+    df.to_csv(os.path.join(outputDir, 'MakeModel_Bboxes.csv'), index=False)
 
     caffeine.off()
