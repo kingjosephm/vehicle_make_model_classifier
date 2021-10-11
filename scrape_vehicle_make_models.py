@@ -57,7 +57,7 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, sleep_b
     start = time.time()
     while image_count < max_links_to_fetch:
 
-        if (time.time() - start) / 60 > 10:  # if still searching for >10 min, break
+        if (time.time() - start) / 60 > 5:  # if still searching for >5 min, break and return whatever have
             continue
 
         scroll_to_end(wd)
@@ -192,6 +192,8 @@ if __name__ == '__main__':
     df = df.merge(foo, on=['Make', 'Model', 'Year'], how='outer', indicator=True)
     df = df.loc[df._merge == 'left_only'].reset_index(drop=True)
     del df['_merge']
+
+    df = df.sort_values(by=['Make', 'Model', 'Year'], ascending=False)
 
     wd = webdriver.Chrome()
     wd.get("https://google.com")
