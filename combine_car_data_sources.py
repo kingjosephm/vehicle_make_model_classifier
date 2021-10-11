@@ -69,6 +69,10 @@ if __name__ == '__main__':
     df['Model'] = np.where((df.Make == 'Audi') & (df['Model'] == 'tt rs'), 'tt', df['Model'])
     df['Model'] = np.where((df.Make == 'Audi') & (df['Model'] == 'tts'), 'tt', df['Model'])
 
+    # Relabel AM General's Hummer h1 into HUMMER as h1
+    df['Make'] = np.where((df.Make == "AM General") & (df.Model == 'hummer'), 'HUMMER', df['Make'])
+    df['Model'] = np.where((df.Make == 'HUMMER') & (df.Model == 'hummer'), 'h1', df['Model'])
+
     df['Model'] = np.where(df.Model=='continental supersports conv.', 'continental', df['Model'])
 
     make_models_stanford = df[['Make', 'Model']].drop_duplicates(subset=["Make", "Model"]).sort_values(by=['Make', 'Model']).reset_index(drop=True)
@@ -93,7 +97,10 @@ if __name__ == '__main__':
 
     df = df[['Make', 'Model', 'Year', 'Orig Path', 'New Path']]
 
+    df = df.sort_values(by=['Make', 'Model', 'Year'])
+
     df.to_csv('./data/stanford_car_directory.csv', index=False)
+
 
     #####################################################
     #####                   VMMRdb                  #####
@@ -117,7 +124,8 @@ if __name__ == '__main__':
     df2['Make'] = np.where(df2['Make'] == 'am', 'AM General', df2['Make'])
     df2['Make'] = np.where(df2['Make'] == 'alfa', 'Alfa Romeo', df2['Make'])
     df2['Make'] = np.where(df2['Make'] == 'rollsroyce', 'Rolls-Royce', df2['Make'])
-    fixed = ['Mercedes-Benz', 'Aston Martin', 'Can-Am', 'AM General', 'Alfa Romeo', 'Rolls-Royce']
+    df2['Make'] = np.where(df2.Make == 'hummer', 'HUMMER', df2['Make'])
+    fixed = ['Mercedes-Benz', 'Aston Martin', 'Can-Am', 'AM General', 'Alfa Romeo', 'Rolls-Royce', 'HUMMER', 'smart']
 
     allcaps = ['ram', 'bmw', 'amc', 'mg', 'mini', 'gmc', 'fiat']
     for x in allcaps:
@@ -178,9 +186,9 @@ if __name__ == '__main__':
     for x in ['g10', 'g20', 'g30']:
         df2['Model'] = np.where((df2.Make == 'Chevrolet') & (df2.Model == x), 'g-series', df2['Model'])
 
-    # Hummer mislabeled
-    df2['Make'] = np.where((df2.Make == "Hummer") & (df2.Model == 'h1'), 'AM General', df2['Make'])
-    df2['Model'] = np.where((df2.Make == "AM General") & (df2.Model == 'h1'), 'hummer', df2['Model'])
+    # Relabel AM General's Hummer h1 into HUMMER as h1
+    df2['Make'] = np.where((df2.Make == "AM General") & (df2.Model == 'hummer'), 'HUMMER', df2['Make'])
+    df2['Model'] = np.where((df2.Make == 'HUMMER') & (df2.Model == 'hummer'), 'h1', df2['Model'])
 
     # Mazda truck
     for x in ['b2000', 'b2200', 'b2300', 'b2500', 'b2600', 'b3000', 'b4000']:
@@ -256,4 +264,10 @@ if __name__ == '__main__':
 
     df2 = df2[['Make', 'Model', 'Year', 'Orig Path', 'New Path']]
 
+    df2 = df2.sort_values(by=['Make', 'Model', 'Year'])
+
     df2.to_csv('./data/vmmr_car_directory.csv', index=False)
+
+    combined_list = pd.concat([df, df2], axis=0).reset_index(drop=True)
+    combined_list = combined_list.sort_values(by=['Make', 'Model', 'Year']).reset_index(drop=True)
+    combined_list.to_csv('./data/combined_stanford_vmmr_directory.csv', index=False)
