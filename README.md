@@ -1,4 +1,11 @@
 # Introduction
+*TODO*
 
-# Data
-Car data come from the [Vehicle Make and Model Recognition database (VMMRdb)](https://github.com/faezetta/VMMRdb). As explained in the corresonding link, this dataset contains 9,170 classes of 291,752 images covering makes manfactured between 1950 and 2016. The data covers vehicles from 712 areas covering all 412 sub-domains corresponding to US metro areas.
+# Training Data
+### Database of U.S. vehicle makes and models
+To create a representative sample of vehicle make and model images for the U.S. passenger vehicle market. we rely on a register of vehicles from [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset). A local copy of this database are stored locally at `./create_training_images/make_model_database.csv` along with the script to generate this extract at `./create_training_images/get_make_model_db.py`. This local database copy contains the universe of vehicle makes and models from calendar year 2000 onwards. At the time the data were queried, this database contained information on vehicles up through and including 2022 models. The database contained information on 59 distinct vehicle manufacturers and 1,032 detailed make-model combinations over the period. 
+
+We drop 4 small vehicle manufacturers (e.g. Fisker, Polestar, Panoz, Rivian), reducing the overall number of distinct vehicle manufacturers in the data to 55. To reduce the number of vehicle make-model combinations, related detailed vehicle models are combined together (e.g. Ford F-150 Super Cab and Ford F350 Super Duty Crew Cab are combined into a single Ford F-Series category) using the script at `./create_training_images/restrict_population_make_models.py`. This reduced the number of unique make-model combinations over the period to 656. The restricted vehicle database is stored at `./create_training_images/make_model_database_mod.csv`. A full list of vehicle makes, models, and years available is below. *TODO*
+
+### Image dataset creation
+Having defined the population of vehicles of interest, we scrape Google Images to download our training dataset. To capture sufficient variation *within* each vehicle make-model combination over time we scrape images using the detailed vehicle model descriptor, combined with the vehicle category (e.g. coupe, sedan, hatchback, SUV, comvertible, wagon, van, pickup), for every year available. In told, this produced 8,779 unique make-(detailed)model-category-year combinations. We store these data in separate directories on disk based on make-(aggregated)model-year.
