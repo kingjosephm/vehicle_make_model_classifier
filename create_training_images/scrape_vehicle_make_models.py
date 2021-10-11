@@ -163,7 +163,7 @@ def search_and_download(wd, query, output_path, number_images=5):
 
 if __name__ == '__main__':
 
-    df = pd.read_csv('make_model_database_mod.csv')
+    df = pd.read_csv('./create_training_images/make_model_database_mod.csv')
     rootOutput = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
 
     number_images = 100
@@ -193,7 +193,7 @@ if __name__ == '__main__':
     df = df.loc[df._merge == 'left_only'].reset_index(drop=True)
     del df['_merge']
 
-    df = df.sort_values(by=['Make', 'Model', 'Year'], ascending=False)
+    df = df.sort_values(by=['Make', 'Model', 'Year'], ascending=True)
 
     wd = webdriver.Chrome()
     wd.get("https://google.com")
