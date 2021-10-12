@@ -10,6 +10,7 @@ import pandas as pd
 import caffeine
 import json
 import shutil
+import argparse
 
 pd.set_option('display.max_columns', 100)
 
@@ -57,8 +58,6 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, sleep_b
     start = time.time()
     while image_count < max_links_to_fetch:
 
-        if (time.time() - start) / 60 > 5:  # if still searching for >5 min, break and return whatever have
-            continue
 
         scroll_to_end(wd)
 
@@ -93,7 +92,10 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, sleep_b
                 break
         else:
             print("Found:", len(image_urls), "image links, looking for more ...")
-            time.sleep(8)
+            time.sleep(20)
+
+            if (time.time() - start) / 60 > 5:  # if still searching for >5 min, break and return whatever have
+                break
 
             not_what_you_want_button = ""
             try:
@@ -161,7 +163,14 @@ def search_and_download(wd, query, output_path, number_images=5):
         else:
             print(f"Failed to return links for term: {query}")
 
-if __name__ == '__main__':
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--top', action='store_true', help='sort df ascending, begin with vehicle makes a -> z')
+    group.add_argument('--bottom', action='store_true', help='sort df descending, begin with vehicle makes z -> a')
+    return parser.parse_args()
+
+def main(opt):
 
     df = pd.read_csv('./create_training_images/make_model_database_mod.csv')
     rootOutput = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
@@ -193,7 +202,10 @@ if __name__ == '__main__':
     df = df.loc[df._merge == 'left_only'].reset_index(drop=True)
     del df['_merge']
 
-    df = df.sort_values(by=['Make', 'Model', 'Year'], ascending=True)
+    if opt.top:
+        df = df.sort_values(by=['Make', 'Model', 'Year'], ascending=True)
+    else:
+        df = df.sort_values(by=['Make', 'Model', 'Year'], ascending=False)
 
     wd = webdriver.Chrome()
     wd.get("https://google.com")
@@ -207,3 +219,8 @@ if __name__ == '__main__':
         search_and_download(wd, query, output_path, number_images=100)
 
     caffeine.off()
+
+if __name__ == '__main__':
+
+    opt = parse_opt()
+    main(opt)
