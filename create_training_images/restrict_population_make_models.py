@@ -11,7 +11,7 @@ if __name__ == '__main__':
         fixes = json.load(f)
 
     # Restrict to brands of interest
-    keep_models = ['Acura', 'Alfa Romeo', 'Aston Martin', 'Audi', 'BMW', 'Bentley',
+    keep_makes = ['Acura', 'Alfa Romeo', 'Aston Martin', 'Audi', 'BMW', 'Bentley',
        'Buick', 'Cadillac', 'Chevrolet', 'Chrysler', 'Daewoo', 'Dodge',
        'Fiat', 'Ferrari', 'Ford', 'GMC', 'Genesis', 'HUMMER',
        'Honda', 'Hyundai', 'INFINITI', 'Isuzu', 'Jaguar', 'Jeep', 'Kia',
@@ -22,7 +22,7 @@ if __name__ == '__main__':
        'Rolls-Royce', 'Saab', 'Saturn', 'Scion', 'Subaru', 'Suzuki',
        'Tesla', 'Toyota', 'Volkswagen', 'Volvo', 'smart']  # Excludes Fisker, Polestar, Panoz, Rivian
 
-    df = df.loc[df.Make.isin(keep_models)].reset_index(drop=True)
+    df = df.loc[df.Make.isin(keep_makes)].reset_index(drop=True)
 
     # Fix errors in category
     df['Category'] = df['Category'].str.replace('Van/Minivan', 'Van')
