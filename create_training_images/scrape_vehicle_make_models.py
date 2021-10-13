@@ -11,8 +11,10 @@ import caffeine
 import json
 import shutil
 import argparse
+import numpy as np
 
 pd.set_option('display.max_columns', 100)
+pd.set_option('display.max_colwidth', None)
 
 
 """
@@ -188,6 +190,15 @@ def main(opt):
     foo['Year'] = foo['Path'].apply(lambda x: x.split('/')[2]).astype(int)
     foo['dir'] = foo['Path'].apply(lambda x: '/'.join(x.split('/')[:-1]))
 
+    # Fixes to account for Chevrolet C/K and RAM C/V
+    foo.loc[(foo.Make == 'Chevrolet') & (foo.Model == 'C:K'), 'Model'] = 'C/K'  # Python changes `/` to `:`
+    foo['dir'] = np.where((foo['Make'] == 'Chevrolet') & (foo['Model'] == 'C/K'), 'Chevrolet/C\/K/' + foo['Year'].astype(str), foo['dir'])
+    foo['Path'] = np.where((foo['Make'] == 'Chevrolet') & (foo['Model'] == 'C/K'), foo['dir'] + '/' + foo['Path'].apply(lambda x: x.split('/')[-1]), foo['Path'])
+
+    foo.loc[(foo.Make == 'RAM') & (foo.Model == 'C:V'), 'Model'] = 'C/V'
+    foo['dir'] = np.where((foo['Make'] == 'RAM') & (foo['Model'] == 'C/V'), 'Chevrolet/C\/K/' + foo['Year'].astype(str), foo['dir'])
+    foo['Path'] = np.where((foo['Make'] == 'RAM') & (foo['Model'] == 'C/V'), foo['dir'] + '/' + foo['Path'].apply(lambda x: x.split('/')[-1]), foo['Path'])
+
     # See if any incomplete, i.e. ~30 less than number of images desired
     foo['count'] = foo.groupby(['Make', 'Model', 'Year'])['Path'].transform('count')
     incomplete_dirs = foo.loc[foo['count'] < number_images-30]['dir'].drop_duplicates().tolist()
@@ -213,7 +224,15 @@ def main(opt):
     for i in range(len(df)):
         query = df.iloc[i, 0] + ' ' + df.iloc[i, 1] + ' ' + df.iloc[i, 3] + ' ' + str(df.iloc[i, 4])
 
-        output_path = os.path.join(rootOutput, df.iloc[i, 0], df.iloc[i, 2], str(df.iloc[i, 4]))
+        # Ensuring directory structure right
+        if df.iloc[i, 2] == 'C/K':
+            fix_model = 'C\/K'
+        elif df.iloc[i, 2] == 'C/V':
+            fix_model = 'C\/V'
+        else:
+            fix_model = df.iloc[i, 2]
+
+        output_path = os.path.join(rootOutput, df.iloc[i, 0], fix_model, str(df.iloc[i, 4]))
         os.makedirs(output_path, exist_ok=True)
 
         search_and_download(wd, query, output_path, number_images=100)
