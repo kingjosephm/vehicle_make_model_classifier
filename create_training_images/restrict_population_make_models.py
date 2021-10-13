@@ -98,6 +98,7 @@ if __name__ == '__main__':
     df.loc[(df.Make == 'Chevrolet') & (df['Model'].str.contains("2500")), 'Model'] = 'C/K'
     df.loc[(df.Make == 'Chevrolet') & (df['Model'].str.contains("3500")), 'Model'] = 'C/K'
     df.loc[(df.Make == 'Chevrolet') & (df['Model'].str.contains("Express")), 'Model'] = 'Express'
+    df.loc[(df.Make == 'Chevrolet') & (df['Model'].str.contains("TrailBlazer")), 'Model'] = 'Trailblazer'
 
     # Chrysler
     df.loc[(df.Make == 'Chrysler') & (df['Model'].str.contains("Pacifica")), 'Model'] = 'Pacifica'
