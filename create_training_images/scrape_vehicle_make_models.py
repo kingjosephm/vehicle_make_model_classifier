@@ -226,9 +226,9 @@ def main(opt):
 
         # Ensuring directory structure right
         if df.iloc[i, 2] == 'C/K':
-            fix_model = 'C\/K'
+            fix_model = 'C:K'
         elif df.iloc[i, 2] == 'C/V':
-            fix_model = 'C\/V'
+            fix_model = 'C:V'
         else:
             fix_model = df.iloc[i, 2]
 
