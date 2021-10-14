@@ -204,7 +204,7 @@ def main(opt):
     incomplete_dirs = foo.loc[foo['count'] < number_images-30]['dir'].drop_duplicates().tolist()
     if incomplete_dirs:
         for x in incomplete_dirs:
-            shutil.rmtree(os.path.join(rootOutput, x))
+            #shutil.rmtree(os.path.join(rootOutput, x))
             foo = foo.loc[foo['dir'] != x].reset_index(drop=True)
 
     foo = foo[['Make', 'Model', 'Year']].drop_duplicates().reset_index(drop=True)
