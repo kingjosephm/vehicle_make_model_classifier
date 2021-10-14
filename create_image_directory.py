@@ -101,7 +101,22 @@ if __name__ == '__main__':
 
     df = df.drop_duplicates(subset=['URL'])
 
-    df = df[['Make', 'Model', 'Year', 'Source Path', 'URL']].sort_values(by=['Make', 'Model', 'Year']).reset_index(drop=True)
+    df = df[['Make', 'Model', 'Source Path', 'URL']]
+
+    #####################################
+    ##### Merge vehicle type column #####
+    #####################################
+
+    db = pd.read_csv('./create_training_images/make_model_database_mod.csv')
+    db = db[['Make', 'Model', 'Category']].drop_duplicates(subset=['Make', 'Model', 'Category']).reset_index(drop=True)
+    db['Category'] = np.where(db.Category.isin(['Coupe', 'Sedan', 'Hatchback', 'Convertible', 'Wagon']), 'Car', db['Category'])
+    db = db.drop_duplicates().reset_index(drop=True)
+
+    df = df.merge(db, on=['Make', 'Model'])
+
+    df = df.sort_values(by=['Make', 'Model'])
+
+    df = df[['Make', 'Model', 'Category', 'Source Path', 'URL']]
 
     outputPath = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories'
     df.to_csv(os.path.join(outputPath, 'MakeModelDirectory.csv'), index=False)
