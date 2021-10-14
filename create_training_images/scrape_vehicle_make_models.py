@@ -196,7 +196,7 @@ def main(opt):
     foo['Path'] = np.where((foo['Make'] == 'Chevrolet') & (foo['Model'] == 'C/K'), foo['dir'] + '/' + foo['Path'].apply(lambda x: x.split('/')[-1]), foo['Path'])
 
     foo.loc[(foo.Make == 'RAM') & (foo.Model == 'C:V'), 'Model'] = 'C/V'
-    foo['dir'] = np.where((foo['Make'] == 'RAM') & (foo['Model'] == 'C/V'), 'Chevrolet/C\/K/' + foo['Year'].astype(str), foo['dir'])
+    foo['dir'] = np.where((foo['Make'] == 'RAM') & (foo['Model'] == 'C/V'), 'RAM/C\/V/' + foo['Year'].astype(str), foo['dir'])
     foo['Path'] = np.where((foo['Make'] == 'RAM') & (foo['Model'] == 'C/V'), foo['dir'] + '/' + foo['Path'].apply(lambda x: x.split('/')[-1]), foo['Path'])
 
     # See if any incomplete, i.e. ~30 less than number of images desired
