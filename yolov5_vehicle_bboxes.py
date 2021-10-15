@@ -74,7 +74,7 @@ if __name__ == '__main__':
         count += 1
     df['Bboxes'] = pd.Series(output)
 
-    df = df.sort_values(by=['Make', 'Model', 'Year'])
+    df = df.sort_values(by=['Make', 'Model'])
 
     df.to_csv(os.path.join(path, 'MakeModelDirectory_Bboxes.csv'), index=False)
 
