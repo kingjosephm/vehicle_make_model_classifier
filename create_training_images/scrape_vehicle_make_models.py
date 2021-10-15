@@ -9,7 +9,6 @@ from selenium import webdriver
 import pandas as pd
 import caffeine
 import json
-import shutil
 import argparse
 import numpy as np
 
@@ -42,7 +41,7 @@ class timeout:
         signal.alarm(0)
 
 
-def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, sleep_between_interactions: float = 0.1):
+def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, existing_urls: list, sleep_between_interactions: float = 0.1):
 
     def scroll_to_end(wd):
         wd.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -84,7 +83,8 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, sleep_b
             for actual_image in actual_images:
                 if actual_image.get_attribute(
                     "src"
-                ) and "http" in actual_image.get_attribute("src"):
+                ) and "http" in actual_image.get_attribute("src") and \
+                        actual_image.get_attribute("src") not in existing_urls:
                     image_urls.add(actual_image.get_attribute("src"))
 
             image_count = len(image_urls)
@@ -119,22 +119,19 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, sleep_b
 
     return image_urls
 
-def search_and_download(wd, query, output_path, number_images=5):
+def search_and_download(wd, query: str, output_path: str, number_images: int =5):
+
+    with open('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images/_image_sources.json', 'rb') as j:
+        existing_urls = json.load(j)
 
     res = fetch_image_urls(
         query,
         number_images,
         wd=wd,
+        existing_urls=list(set(existing_urls.values()))
     )
 
     if res is not None:
-
-        # Save image sources
-        if os.path.exists(os.path.join(output_path, 'image_sources.json')):
-            with open(os.path.join(output_path, 'image_sources.json'), 'rb') as j:
-                image_sources = json.load(j)
-        else:
-            image_sources = {}
 
         for url in res:
             try:
@@ -155,15 +152,18 @@ def search_and_download(wd, query, output_path, number_images=5):
                     image.save(f, "JPEG", quality=85)
                 print(f"SUCCESS - saved {url} - as {file_path}")
 
-                image_sources[file_path.split('/')[-1]] = url
+                existing_urls[file_path] = url
 
             except Exception as e:
                 print(f"ERROR - Could not save {url} - {e}")
 
-            with open(os.path.join(output_path, 'image_sources.json'), 'w') as j:
-                json.dump(image_sources, j)
-        else:
-            print(f"Failed to return links for term: {query}")
+            with open(
+                    '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images/_image_sources.json',
+                    'w') as j:
+                json.dump(existing_urls, j)
+
+    else:
+        print(f"Failed to return links for term: {query}")
 
 def parse_opt():
     parser = argparse.ArgumentParser()
@@ -201,16 +201,13 @@ def main(opt):
 
     # See if any incomplete, i.e. ~30 less than number of images desired
     foo['count'] = foo.groupby(['Make', 'Model', 'Year'])['Path'].transform('count')
-    incomplete_dirs = foo.loc[foo['count'] < number_images-30]['dir'].drop_duplicates().tolist()
-    if incomplete_dirs:
-        for x in incomplete_dirs:
-            #shutil.rmtree(os.path.join(rootOutput, x))
-            foo = foo.loc[foo['dir'] != x].reset_index(drop=True)
 
-    foo = foo[['Make', 'Model', 'Year']].drop_duplicates().reset_index(drop=True)
+    incomplete = foo.loc[foo['count'] < number_images - 30][['Make', 'Model', 'Year']].drop_duplicates().reset_index(drop=True)  # insufficient number of images
+    complete = foo.loc[foo['count'] >= number_images - 30][['Make', 'Model', 'Year']].drop_duplicates().reset_index(drop=True)
 
-    df = df.merge(foo, on=['Make', 'Model', 'Year'], how='outer', indicator=True)
-    df = df.loc[df._merge == 'left_only'].reset_index(drop=True)
+    # Remove make-model-year combinations where image count sufficient
+    df = df.merge(complete, on=['Make', 'Model', 'Year'], how='outer', indicator=True)
+    df = df.loc[df._merge != 'both'].reset_index(drop=True)
     del df['_merge']
 
     if opt.top:
