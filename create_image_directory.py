@@ -99,9 +99,18 @@ if __name__ == '__main__':
 
     df = df.loc[df.URL.notnull()]
 
-    df = df.drop_duplicates(subset=['URL'])
+    df['dup'] = df.duplicated(subset=["URL"])
+    dups = df.loc[df.dup == True].reset_index(drop=True)
+    df = df.loc[df.dup == False].reset_index(drop=True)
 
     df = df[['Make', 'Model', 'Source Path', 'URL']]
+
+    ########################################
+    ##### Delete duplicates from disk ######
+    ########################################
+
+    for x in dups['Source Path']:
+        os.remove(x)
 
     #####################################
     ##### Merge vehicle type column #####
