@@ -18,8 +18,6 @@ if __name__ == '__main__':
 
     rootDir = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
 
-    number_images = 100
-
     ###############################
     ##### DataFrame of Images #####
     ###############################
@@ -32,61 +30,27 @@ if __name__ == '__main__':
     df['Make'] = df['Source Path'].apply(lambda x: x.split('/')[0])
     df['Model'] = df['Source Path'].apply(lambda x: x.split('/')[1])
     df['Year'] = df['Source Path'].apply(lambda x: x.split('/')[2]).astype(int)
-    df['dir'] = df['Source Path'].apply(lambda x: '/'.join(x.split('/')[:-1]))
 
     # Fixes to account for Chevrolet C/K and RAM C/V
     df.loc[(df.Make == 'Chevrolet') & (df.Model == 'C:K'), 'Model'] = 'C/K'  # Python changes `/` to `:`
     df.loc[(df.Make == 'RAM') & (df.Model == 'C:V'), 'Model'] = 'C/V'
 
-    # Remove directories still scraping images - incomplete
-    df['image_count'] = df.groupby(['Make', 'Model', 'Year'])['Source Path'].transform('count')
-    incomplete_dirs = df.loc[df['image_count'] < number_images-30]['dir'].drop_duplicates().tolist()
-    if incomplete_dirs:
-        for x in incomplete_dirs:
-            df = df.loc[df['dir'] != x].reset_index(drop=True)
-
     df['Source Path'] = df['Source Path'].apply(lambda x: rootDir + '/' + x)  # Makes absolute path
-    del df['image_count']
 
-    ####################################
-    ##### DataFrame of JSON files ######
-    ####################################
+    ################################
+    ##### Source URL per Image #####
+    ################################
 
-    lst2 = []
-    for subdir, dirs, files in os.walk(rootDir):
-        for file in [i for i in files if 'json' in i]:
-            lst2.append('/'.join(os.path.join(subdir, file).split('/')[-4:]))  # does not count empty subdirectories
-    foo = pd.DataFrame(lst2, columns=["Path"])
-    foo['Make'] = foo['Path'].apply(lambda x: x.split('/')[0])
-    foo['Model'] = foo['Path'].apply(lambda x: x.split('/')[1])
-    foo['Year'] = foo['Path'].apply(lambda x: x.split('/')[2]).astype(int)
-    foo['dir'] = foo['Path'].apply(lambda x: '/'.join(x.split('/')[:-1]))
+    path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images/_image_sources.json'
 
-    # Fixes to account for Chevrolet C/K and RAM C/V
-    foo.loc[(foo.Make == 'Chevrolet') & (foo.Model == 'C:K'), 'Model'] = 'C/K'  # Python changes `/` to `:`
-    foo.loc[(foo.Make == 'RAM') & (foo.Model == 'C:V'), 'Model'] = 'C/V'
+    with open(path, 'rb') as j:
+        url = json.load(j)
 
-    foo['Path'] = foo['Path'].apply(lambda x: rootDir + '/' + x)  # Makes absolute path
+    urls = pd.DataFrame(url.items(), columns=['Source Path', 'URL'])
 
     ##########################################
     ##### Append source URL to DataFrame #####
     ##########################################
-
-    temp_df = df[['dir']].drop_duplicates().sort_values(by='dir').reset_index(drop=True)  # de-duplicated list of directories with sufficient number of images
-    foo = foo.merge(temp_df, on=['dir'], how='inner')  # merge restricts to JSON files in directories with sufficient number of images, otherwise includes dirs still being scraped
-    foo = foo.sort_values(by=['Make', 'Model', 'Year']).reset_index(drop=True)
-    del df['dir']  # no longer needed
-
-    url_list = []
-
-    for i in foo.index:
-
-        with open(foo.iloc[i, 0], 'rb') as j:
-            temp = json.load(j)
-            for key, value in temp.items():
-                url_list.append(['/'.join(foo.iloc[i, 0].split('/')[:-1]) + '/' + key, value])
-
-    urls = pd.DataFrame(url_list, columns=['Source Path', 'URL'])
 
     df = df.merge(urls, on='Source Path', how='left')
 
@@ -96,6 +60,8 @@ if __name__ == '__main__':
 
     df['valid_url'] = df['URL'].apply(lambda x: valid_URL(x))
     df['URL'] = np.where(df['valid_url'] == False, np.NaN, df['URL'])
+
+    missings = df.loc[df.URL.isnull()]
 
     df = df.loc[df.URL.notnull()]
 
@@ -111,6 +77,20 @@ if __name__ == '__main__':
 
     for x in dups['Source Path']:
         os.remove(x)
+
+    for x in missings['Source Path']:
+        os.remove(x)
+
+    ##############################################
+    ##### Output corrected image source JSON #####
+    ##############################################
+
+    img_source = df[['Source Path', 'URL']].set_index("Source Path").to_dict(orient='index')
+    for key, val in img_source.items():
+        img_source[key] = val['URL']
+
+    with open(path, 'w') as j:
+        json.dump(img_source, j)
 
     #####################################
     ##### Merge vehicle type column #####
