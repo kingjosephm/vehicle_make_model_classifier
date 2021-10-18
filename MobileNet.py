@@ -4,19 +4,19 @@ import argparse
 import sys
 from datetime import datetime
 import tensorflow as tf
+import json
 
-class MobleNetClassifier(ClassifierCore):
+class MobileNetClassifier(ClassifierCore):
     def __init__(self, config):
         super().__init__(config)
-        self.df, \
-        self.make, \
-        self.make_model, \
-        self.category = super().read_dataframe(self.config['img_dataframe_path'])  # TODO - how handle predict mode?
+        self.df = super().read_dataframe(self.config['img_dataframe_path'])  # TODO - how handle predict mode?
 
-    def process_image_train_grey(self, image_file, bboxes):
+    def process_image_train_gray(self, image_file, bboxes: tf.Tensor, labels: tuple):
         """
-        Loads, augments, and processes a single PNG/JPG image into tensor
+        Loads, augments, and processes a single grayscale PNG/JPG image into tensor
         :param image_file: str, absolute path to PNG/JPG image
+        :param bboxes: tf.Tensor tf.int32, bounding box coordinates
+        :param labels: tuple, tuple of 4 tf.Tensor containing labels
         :return: 3d tensor of shape [height, width, channels]
         """
         image = super().load(image_file, channels=1)
@@ -27,9 +27,16 @@ class MobleNetClassifier(ClassifierCore):
         image = super().random_contrast(image, seed=(1, self.config['seed']))
         image = super().grayscale_to_rgb(image)
         image = super().normalize(image)
-        return image
+        return image, labels
 
-    def process_image_train_color(self, image_file, bboxes):
+    def process_image_train_color(self, image_file: tf.Tensor, bboxes: tf.Tensor, labels: tuple):
+        """
+        Loads, augments, and processes a single color PNG/JPG image into tensor
+        :param image_file: str, absolute path to PNG/JPG image
+        :param bboxes: tf.Tensor tf.int32, bounding box coordinates
+        :param labels: tuple, tuple of 4 tf.Tensor containing labels
+        :return: 3d tensor of shape [height, width, channels]
+        """
         image = super().load(image_file, channels=3)
         image = super().bbox_crop(image, bboxes[0], bboxes[1], bboxes[2], bboxes[3])
         image = super().resize(image, height=self.config['img_size'][0], width=self.config['img_size'][1])
@@ -39,12 +46,12 @@ class MobleNetClassifier(ClassifierCore):
         image = super().random_hue(image, seed=(1, self.config['seed']))
         image = super().random_saturation(image, seed=(1, self.config['seed']))
         image = super().normalize(image)
-        return image
+        return image, labels
 
 
-    def process_image_val(self, image_file, bboxes):
+    def process_image_val(self, image_file: tf.Tensor, bboxes: tf.Tensor, labels: tuple):
         """
-        Loads and processes a single PNG/JPG image into tensor.
+        Loads and processes a single color validation PNG/JPG image into tensor.
         :param image_file: str, absolute path to PNG/JPG image
         :return: 3d tensor of shape [height, width, channels]
         """
@@ -52,7 +59,7 @@ class MobleNetClassifier(ClassifierCore):
         image = super().bbox_crop(image, bboxes[0], bboxes[1], bboxes[2], bboxes[3])
         image = super().resize(image, height=self.config['img_size'][0], width=self.config['img_size'][1])
         image = super().normalize(image)
-        return image
+        return image, labels
 
     def image_pipeline(self, predict=False):
         print("\nReading in and processing images.\n", flush=True)
@@ -65,30 +72,26 @@ class MobleNetClassifier(ClassifierCore):
             # Partition df into validation and train splits, where train is x% RGB and 1-x% greyscale
             validation = self.df.sample(frac=self.config['validation_size'], random_state=self.config['seed'])
             train = self.df[~self.df.index.isin(validation.index)]
-            rgb = train.sample(frac=(1-self.config['share_greyscale']), random_state=self.config['seed'])
-            gray = train[~train.index.isin(rgb.index)]
+            color = train.sample(frac=(1-self.config['share_greyscale']), random_state=self.config['seed'])
+            grayscale = train[~train.index.isin(color.index)]
 
             # Convert to tensorflow dataset
-            val = tf.data.Dataset.from_tensor_slices(
-                (validation['Source Path'], tf.cast(list(validation['Bboxes']), tf.int32)))
-            color = tf.data.Dataset.from_tensor_slices((rgb['Source Path'], tf.cast(list(rgb['Bboxes']), tf.int32)))
+            validation = tf.data.Dataset.from_tensor_slices(
+                (validation['Source Path'], tf.cast(list(validation['Bboxes']), tf.int32),
+                 (validation['Make-Model'], validation['Make'], validation['Category'])))
+
+            color = tf.data.Dataset.from_tensor_slices(
+                (color['Source Path'], tf.cast(list(color['Bboxes']), tf.int32),
+                 (color['Make-Model'], color['Make'], color['Category'])))
+
             grayscale = tf.data.Dataset.from_tensor_slices(
-                (gray['Source Path'], tf.cast(list(gray['Bboxes']), tf.int32)))
+                (grayscale['Source Path'], tf.cast(list(grayscale['Bboxes']), tf.int32),
+                 (grayscale['Make-Model'], grayscale['Make'], grayscale['Category'])))
 
             # Mapping function to read and adjust images
-            val = val.map(self.process_image_val, num_parallel_calls=tf.data.AUTOTUNE).cache()
+            validation = validation.map(self.process_image_val, num_parallel_calls=tf.data.AUTOTUNE).cache()
             color = color.map(self.process_image_train_color, num_parallel_calls=tf.data.AUTOTUNE).cache()
-            grayscale = grayscale.map(self.process_image_train_grey, num_parallel_calls=tf.data.AUTOTUNE).cache()
-
-            # Attach labels to respective tf dataframes
-            validation_labels = tf.data.Dataset.from_tensor_slices((validation['Make-Model'],
-                                                                    validation['Make'], validation['Category']))
-            color_labels = tf.data.Dataset.from_tensor_slices((rgb['Make-Model'], rgb['Make'], rgb['Category']))
-            gray_labels = tf.data.Dataset.from_tensor_slices((gray['Make-Model'], gray['Make'], gray['Category']))
-
-            validation = tf.data.Dataset.zip((val, validation_labels))
-            color = tf.data.Dataset.zip((color, color_labels))
-            grayscale = tf.data.Dataset.zip((grayscale, gray_labels))
+            grayscale = grayscale.map(self.process_image_train_gray, num_parallel_calls=tf.data.AUTOTUNE).cache()
 
             # Concatenate color and grayscale together
             train = color.concatenate(grayscale)
@@ -98,10 +101,10 @@ class MobleNetClassifier(ClassifierCore):
             validation = validation.shuffle(buffer_size=len(validation)*10, seed=self.config['seed'], reshuffle_each_iteration=True )
 
             # Prefetch and batch
-            train = train.prefetch(buffer_size=tf.data.AUTOTUNE)
-            validation = validation.prefetch(buffer_size=tf.data.AUTOTUNE)
             train = train.batch(self.config['global_batch_size'])
             validation = validation.batch(self.config['global_batch_size'])
+            train = train.prefetch(buffer_size=tf.data.AUTOTUNE)
+            validation = validation.prefetch(buffer_size=tf.data.AUTOTUNE)
 
         return train, validation
 
@@ -123,8 +126,8 @@ def parse_opt():
     group.add_argument('--train', action='store_true', help='train model using data')
     group.add_argument('--predict', action='store_true', help='use pretrained weights to make predictions on data')
     # Train params
-    parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train', required='--train' in sys.argv)
-    parser.add_argument('--validation-size', type=float, default=0.2, help='validation set size as share of number of training images', required='--train' in sys.argv)  # TODO - add int type too
+    parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train')
+    parser.add_argument('--validation-size', type=float, default=0.2, help='validation set size as share of number of training images')  # TODO - add int type too
     group2 = parser.add_mutually_exclusive_group(required='--train' in sys.argv)
     group2.add_argument('--save-weights', action='store_true', help='save model checkpoints and weights')
     group2.add_argument('--no-save-weights', action='store_true', help='do not save model checkpoints or weights')
@@ -156,7 +159,17 @@ def main(opt):
         sys.stdout = open(os.path.join(log_dir, "Log.txt"), "w")
         sys.stderr = sys.stdout
 
-    mnc = MobleNetClassifier(vars(opt))
+    mnc = MobileNetClassifier(vars(opt))
+
+    # Output config to logging dir
+    with open(os.path.join(log_dir, 'config.json'), 'w') as f:
+        json.dump(mnc.config, f)
+
+    if opt.predict:
+        pass
+
+    else:
+        train, val = mnc.image_pipeline(predict=False)
 
 
 if __name__ == '__main__':

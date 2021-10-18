@@ -27,12 +27,12 @@ class ClassifierCore(ABC):
         self.config['global_batch_size'] = self.config['batch_size'] * strategy.num_replicas_in_sync
         self.strategy = strategy
 
-    def read_dataframe(path: str, confidence: float = 0.6, min_bbox_area: int = 10000):
+    def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 10000):
         """
         Reads and processes string path to CSV containing image paths and labels
         :param path: str, path to CSV file
         :param confidence: float, confidence level of object in bounding box of image
-        :param min_bbox_size: int, min pixel area of bbox image, otherwise observation excluded
+        :param min_bbox_area: int, min pixel area of bbox image, otherwise observation excluded
         :return: pd.DataFrame
         """
         df = pd.read_csv(path, usecols=['Make', 'Model', 'Category', 'Source Path', 'Bboxes'])
@@ -60,9 +60,9 @@ class ClassifierCore(ABC):
 
         return df
 
-    def load(self, image_file: str, channels: int = 0):
+    def load(self, image_file: tf.Tensor, channels: int = 0):
         """
-        :param image_file: str, absolute path to image file
+        :param image_file: tf.Tensor containing string path to image
         :param channels, int, desired number of color channels for decoded image. By default it infers the number.
         :return: A 3d tensor of shape [height, width, channels]
         """
@@ -87,19 +87,19 @@ class ClassifierCore(ABC):
         """
         return tf.image.resize(image, [height, width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
-    # Normalizing the images to [0, 1]
-    def normalize(self, image):
+    def normalize(self, image: tf.Tensor):
         """
+        Normalizes pixel values to 0-1 rage.
         :param image: 3d tensor of shape [height, width, channels]
         :return: A tensor of the same type and shape as image.
         """
         return (image / 255.0)
 
-    def random_flip(self, image: tensorflow.Tensor, seed: tuple = (1, 123)):
+    def random_flip(self, image: tf.Tensor, seed: tuple = (1, 123)):
         """
         Randomly flip an image horizontally (left to right) deterministically.
-        :param image: 3d tensor of shape [height, width, channels]
-        :param seed: 2d tuple, seed for random number generator
+        :param image: 4-D Tensor of shape [batch, height, width, channels] or 3-D Tensor of shape [height, width, channels]
+        :param seed: tuple, seed for random number generator
         :return: A tensor of the same type and shape as image.
         """
         return tf.image.stateless_random_flip_left_right(image, seed)
@@ -131,16 +131,16 @@ class ClassifierCore(ABC):
         """
         return tf.image.stateless_random_hue(image, max_delta=0.2, seed=seed)
 
-    def random_saturation(self, image: tensorflow.Tensor, seed: tuple = (1, 123)):
+    def random_saturation(self, image: tf.Tensor, seed: tuple = (1, 123)):
         """
         Adjust the saturation of RGB images by a random factor deterministically.
-        :param image: 3d tensor of shape [height, width, channels]
+        :param image: 4-D Tensor of shape [batch, height, width, channels] or 3-D Tensor of shape [height, width, channels]
         :param seed: 2d tuple, seed for random number generator
         :return: A tensor of the same type and shape as image.
         """
         return tf.image.stateless_random_saturation(image, lower=0.2, upper=0.5, seed=seed)
 
-    def bbox_crop(self, image, offset_height, offset_width, target_height, target_width):
+    def bbox_crop(self, image: tf.Tensor, offset_height: int, offset_width: int, target_height: int, target_width: int):
         """
         Crops an image according to bounding box coordinates
         :param image: 4-D Tensor of shape [batch, height, width, channels] or 3-D Tensor of shape [height, width, channels]
@@ -152,7 +152,7 @@ class ClassifierCore(ABC):
         """
         return tf.image.crop_to_bounding_box(image, offset_height, offset_width, target_height, target_width)
 
-    def grayscale_to_rgb(self, image):
+    def grayscale_to_rgb(self, image: tf.Tensor):
         """
         Converts one or more images from Grayscale to RGB. Outputs a tensor of the same DType and rank as images.
         The size of the last dimension of the output is 3, containing the RGB value of the pixels. The input images'
