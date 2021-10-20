@@ -6,6 +6,7 @@ from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras.applications import mobilenet_v2
 import json
+import pandas as pd
 import pdb
 
 """
@@ -132,38 +133,40 @@ class MobileNetClassifier(ClassifierCore):
 
     def train_model(self, train: tf.Tensor, validation: tf.Tensor, checkpoint_directory: str):
 
-        def train_step(images, labels):
-
-            with tf.GradientTape() as tape:
-                predictions = model(images, training=True)
-                loss = compute_loss(labels, predictions)
-
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
-            training_loss.update_state(loss)
-            train_accuracy.update_state(labels, predictions)
-            return loss
-
-        def validation_step(images, labels):
-
-            predictions = model(images, training=False)
-            v_loss = loss_object(labels, predictions)
-
-            validation_loss.update_state(v_loss)
-            validation_accuracy.update_state(labels, predictions)
-
-        @tf.function
-        def distributed_train_step(dataset_inputs):
-            per_replica_losses = self.strategy.run(train_step, args=(dataset_inputs))
-            return self.strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
-
-        @tf.function
-        def distributed_validation_step(dataset_inputs):
-            return self.strategy.run(validation_step, args=(dataset_inputs))
-
+        performance_metrics = {}
+        log_dir = os.path.join(checkpoint_directory, '..', 'logs')
+        if self.config['save_train_metrics']:
+            os.makedirs(log_dir, exist_ok=True)
 
         with self.strategy.scope():
+
+            def train_step(images, labels):
+                with tf.GradientTape() as tape:
+                    predictions = model(images, training=True)
+                    loss = compute_loss(labels, predictions)
+
+                gradients = tape.gradient(loss, model.trainable_variables)
+                optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+                training_loss.update_state(loss)
+                train_accuracy.update_state(labels, predictions)
+                return loss
+
+            def validation_step(images, labels):
+                predictions = model(images, training=False)
+                v_loss = loss_object(labels, predictions)
+
+                validation_loss.update_state(v_loss)
+                validation_accuracy.update_state(labels, predictions)
+
+            @tf.function
+            def distributed_train_step(dataset_inputs):
+                per_replica_losses = self.strategy.run(train_step, args=(dataset_inputs))
+                return self.strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
+
+            @tf.function
+            def distributed_validation_step(dataset_inputs):
+                return self.strategy.run(validation_step, args=(dataset_inputs))
 
             loss_object = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
 
@@ -194,7 +197,6 @@ class MobileNetClassifier(ClassifierCore):
         if self.config['save_weights']:
             checkpoint_manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
 
-
         for epoch in range(self.config['epochs']):
             # TRAIN LOOP
             total_loss = 0.0
@@ -215,19 +217,28 @@ class MobileNetClassifier(ClassifierCore):
                 if self.config['save_weights']:
                     checkpoint_manager.save()
 
-            template = ("Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, "
-                        "Test Accuracy: {}")
+            template = ("Epoch {}, Loss: {}, Accuracy: {}, Validation Loss: {}, "
+                        "Validation Accuracy: {}")
             print(template.format(epoch + 1, train_loss,
                                   train_accuracy.result(), validation_loss.result(),
                                   validation_accuracy.result()))
+
+            performance_metrics[epoch+1] = [train_loss.numpy(), train_accuracy.result().numpy(),
+                                           validation_loss.result().numpy(),
+                                           validation_accuracy.result().numpy()]
 
             validation_loss.reset_states()
             train_accuracy.reset_states()
             validation_accuracy.reset_states()
 
+        if self.config['save_train_metrics']:
+            df = pd.DataFrame(columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy']).from_dict(performance_metrics, orient='columns', columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy'])
+            df.to_csv(os.path.join(log_dir, 'metrics.csv'), index=True)
+
+
 def parse_opt():
     parser = argparse.ArgumentParser()
-    # Needed in all cases
+    # Apply to train or predict modes
     parser.add_argument('--img-df-path', type=str, help='path to dataframe containing image paths and labels', required=True)  # TODO - accept dir path for predict?
     parser.add_argument('--data', type=str, default='./data/scraped_images', help='path to root directory where scraped vehicle images stored')
     parser.add_argument('--output', type=str, help='path to output results', required=True)
@@ -254,6 +265,7 @@ def parse_opt():
     parser.add_argument('--learning-rate', type=float, default=0.001, help='Adam optimizer learning rate')
     parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
+    parser.add_argument('--save-train-metrics', type=bool, default=True, help='whether or not to save training performance metrics per epoch')
     # Predict param
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
