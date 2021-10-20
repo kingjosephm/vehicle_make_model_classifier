@@ -35,8 +35,6 @@ if __name__ == '__main__':
     df.loc[(df.Make == 'Chevrolet') & (df.Model == 'C:K'), 'Model'] = 'C/K'  # Python changes `/` to `:`
     df.loc[(df.Make == 'RAM') & (df.Model == 'C:V'), 'Model'] = 'C/V'
 
-    df['Source Path'] = df['Source Path'].apply(lambda x: rootDir + '/' + x)  # Makes absolute path
-
     ################################
     ##### Source URL per Image #####
     ################################

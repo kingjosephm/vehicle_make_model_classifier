@@ -119,7 +119,7 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, existin
 
     return image_urls
 
-def search_and_download(wd, query: str, output_path: str, number_images: int =5):
+def search_and_download(wd, query: str, rootOutput: str, output_path: str, number_images: int =5):
 
     # Open JSON of image source URLs, if exists already, otherwise initialize
     if os.path.exists('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/_image_sources.json'):
@@ -151,14 +151,12 @@ def search_and_download(wd, query: str, output_path: str, number_images: int =5)
             try:
                 image_file = io.BytesIO(image_content)
                 image = Image.open(image_file).convert("RGB")
-                file_path = os.path.join(
-                    output_path, hashlib.sha1(image_content).hexdigest()[:10] + ".jpg"
-                )
+                file_path = os.path.join(rootOutput, output_path, hashlib.sha1(image_content).hexdigest()[:10] + ".jpg")
                 with open(file_path, "wb") as f:
                     image.save(f, "JPEG", quality=85)
                 print(f"SUCCESS - saved {url} - as {file_path}")
 
-                existing_urls[file_path] = url
+                existing_urls[output_path] = url  # only relative path to image
 
             except Exception as e:
                 print(f"ERROR - Could not save {url} - {e}")
@@ -235,10 +233,10 @@ def main(opt):
         else:
             fix_model = df.iloc[i, 2]
 
-        output_path = os.path.join(rootOutput, df.iloc[i, 0], fix_model, str(df.iloc[i, 4]))
-        os.makedirs(output_path, exist_ok=True)
+        output_path = os.path.join(df.iloc[i, 0], fix_model, str(df.iloc[i, 4]))
+        os.makedirs(os.path.join(rootOutput, output_path), exist_ok=True)
 
-        search_and_download(wd, query, output_path, number_images=100)
+        search_and_download(wd, query, rootOutput, output_path, number_images=100)
 
     caffeine.off()
 
