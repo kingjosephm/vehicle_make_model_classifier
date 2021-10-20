@@ -54,11 +54,25 @@ class ClassifierCore(ABC):
         # Concatenate Make and Model as new variable
         df['Make-Model'] = df['Make'] + ' ' + df['Model']
 
-        # Rearrange
-        df = df[['Make', 'Make-Model', 'Category', 'Source Path', 'Bboxes']]\
-            .sample(frac=1.0, random_state=123).reset_index(drop=True)
+        # Modify `Source Path` to make absolute path to each image file
+        df['Source Path'] = df['Source Path'].apply(lambda x: self.config['data'] + '/' + x)
 
-        return df
+        # Rearrange
+        df = df[['Make-Model', 'Category', 'Source Path', 'Bboxes']]\
+            .sample(frac=1.0, random_state=self.config['seed']).reset_index(drop=True)
+
+        # Convert Make-Model to int, generate label mapping
+        df['Make-Model'] = df['Make-Model'].astype('category')
+        temp = dict(zip(df['Make-Model'].cat.codes, df['Make-Model'].cat.categories))
+
+        # Attach category of vehicle to mapping
+        label_mapping = {}
+        for key, val in temp.items():
+            label_mapping[key] = [val, df.loc[df['Make-Model'] == temp[key]]['Category'].drop_duplicates().values[0]]
+
+        df['Make-Model'] = df['Make-Model'].astype('category').cat.codes  # Converts to int
+
+        return df, label_mapping
 
     def load(self, image_file: tf.Tensor, channels: int = 0):
         """
@@ -95,50 +109,45 @@ class ClassifierCore(ABC):
         """
         return (image / 255.0)
 
-    def random_flip(self, image: tf.Tensor, seed: tuple = (1, 123)):
+    def random_flip(self, image: tf.Tensor):
         """
         Randomly flip an image horizontally (left to right) deterministically.
         :param image: 4-D Tensor of shape [batch, height, width, channels] or 3-D Tensor of shape [height, width, channels]
-        :param seed: tuple, seed for random number generator
         :return: A tensor of the same type and shape as image.
         """
-        return tf.image.stateless_random_flip_left_right(image, seed)
+        return tf.image.random_flip_left_right(image)
 
-    def random_brightness(self, image: tensorflow.Tensor, seed: tuple = (1, 123)):
+    def random_brightness(self, image: tensorflow.Tensor):
         """
         Adjust the brightness of images by a random factor deterministically.
         :param image:  3d tensor of shape [height, width, channels]
-        :param seed: 2d tuple, seed for random number generator
         :return: A tensor of the same type and shape as image.
         """
-        return tf.image.stateless_random_brightness(image, max_delta=0.2, seed=seed)
+        return tf.image.random_brightness(image, max_delta=0.2)
 
-    def random_contrast(self, image: tensorflow.Tensor, seed: tuple = (1, 123)):
+    def random_contrast(self, image: tensorflow.Tensor):
         """
         Adjust the contrast of images by a random factor deterministically.
         :param image: 3d tensor of shape [height, width, channels]
-        :param seed: 2d tuple, seed for random number generator
         :return: A tensor of the same type and shape as image.
         """
-        return tf.image.stateless_random_contrast(image, lower=0.2, upper=0.5, seed=seed)
+        return tf.image.random_contrast(image, lower=0.2, upper=0.5)
 
-    def random_hue(self, image: tensorflow.Tensor, seed: tuple = (1, 123)):
+    def random_hue(self, image: tensorflow.Tensor):
         """
         Adjust the hue of RGB images by a random factor deterministically.
         :param image: 3d tensor of shape [height, width, channels]
-        :param seed: 2d tuple, seed for random number generator
         :return: A tensor of the same type and shape as image.
         """
-        return tf.image.stateless_random_hue(image, max_delta=0.2, seed=seed)
+        return tf.image.random_hue(image, max_delta=0.2)
 
-    def random_saturation(self, image: tf.Tensor, seed: tuple = (1, 123)):
+    def random_saturation(self, image: tf.Tensor):
         """
         Adjust the saturation of RGB images by a random factor deterministically.
         :param image: 4-D Tensor of shape [batch, height, width, channels] or 3-D Tensor of shape [height, width, channels]
-        :param seed: 2d tuple, seed for random number generator
         :return: A tensor of the same type and shape as image.
         """
-        return tf.image.stateless_random_saturation(image, lower=0.2, upper=0.5, seed=seed)
+        return tf.image.random_saturation(image, lower=0.2, upper=0.5)
 
     def bbox_crop(self, image: tf.Tensor, offset_height: int, offset_width: int, target_height: int, target_width: int):
         """
