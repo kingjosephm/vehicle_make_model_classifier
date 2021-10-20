@@ -41,7 +41,7 @@ if __name__ == '__main__':
     ##### Source URL per Image #####
     ################################
 
-    path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images/_image_sources.json'
+    path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/_image_sources.json'
 
     with open(path, 'rb') as j:
         url = json.load(j)

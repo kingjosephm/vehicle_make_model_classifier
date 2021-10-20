@@ -121,8 +121,14 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, existin
 
 def search_and_download(wd, query: str, output_path: str, number_images: int =5):
 
-    with open('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images/_image_sources.json', 'rb') as j:
-        existing_urls = json.load(j)
+    # Open JSON of image source URLs, if exists already, otherwise initialize
+    if os.path.exists('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/_image_sources.json'):
+
+        with open('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/_image_sources.json', 'rb') as j:
+            existing_urls = json.load(j)
+
+    else:
+        existing_urls = {}
 
     res = fetch_image_urls(
         query,
@@ -158,7 +164,7 @@ def search_and_download(wd, query: str, output_path: str, number_images: int =5)
                 print(f"ERROR - Could not save {url} - {e}")
 
             with open(
-                    '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images/_image_sources.json',
+                    '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/_image_sources.json',
                     'w') as j:
                 json.dump(existing_urls, j)
 
