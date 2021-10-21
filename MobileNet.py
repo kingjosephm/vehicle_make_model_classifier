@@ -71,7 +71,10 @@ class MobileNetClassifier(ClassifierCore):
         else:
 
             # Partition df into test, validation, and train splits, where train is x% RGB and 1-x% greyscale
-            test = self.df.sample(frac=self.config['test_size'], random_state=self.config['seed'])
+            if self.config['test_size'] > 0:
+                test = self.df.sample(frac=self.config['test_size'], random_state=self.config['seed'])
+            else:
+                test = pd.DataFrame()
             df = self.df[~self.df.index.isin(test.index)]
             validation = df.sample(frac=self.config['validation_size'], random_state=self.config['seed'])
             train = df[~df.index.isin(validation.index)]
@@ -96,9 +99,9 @@ class MobileNetClassifier(ClassifierCore):
             train = train.map(self.process_image_train, num_parallel_calls=tf.data.AUTOTUNE)
 
             # Prefetch and batch
-            train = train.batch(self.config['global_batch_size'])
-            validation = validation.batch(self.config['global_batch_size'])
-            test = test.batch(self.config['global_batch_size'])
+            train = train.batch(self.config['batch_size'])
+            validation = validation.batch(self.config['batch_size'])
+            test = test.batch(self.config['batch_size'])
             train = train.prefetch(buffer_size=tf.data.AUTOTUNE)
             validation = validation.prefetch(buffer_size=tf.data.AUTOTUNE)
 
@@ -128,8 +131,6 @@ class MobileNetClassifier(ClassifierCore):
         x = mobilenet_layer(x, training=False)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(self.config['dropout'])(x)
-        x = tf.keras.layers.Dense(self.config['units'], activation='relu')(x)
-        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
         output = tf.keras.layers.Dense(self.df.iloc[:, 2:].shape[1], activation='softmax')(x)
         model = tf.keras.Model(inputs, output)
 
@@ -138,112 +139,36 @@ class MobileNetClassifier(ClassifierCore):
 
     def train_model(self, train: tf.Tensor, validation: tf.Tensor, test: tf.Tensor, checkpoint_directory: str):
 
-        performance_metrics = {}
-        log_dir = os.path.join(checkpoint_directory, '..', 'logs')
-        os.makedirs(log_dir, exist_ok=True)
+        # Compile model
+        model = self.build_model()
 
-        with self.strategy.scope():
+        loss_object = tf.keras.losses.CategoricalCrossentropy()
+        optimizer = tf.keras.optimizers.Adam(learning_rate=self.config['learning_rate'],
+                                             beta_1=self.config['beta_1'], beta_2=self.config['beta_2'])
 
-            def train_step(images, labels):
-                with tf.GradientTape() as tape:
-                    predictions = model(images, training=True)
-                    loss = compute_loss(labels, predictions)
+        model.compile(loss=loss_object, optimizer=optimizer, metrics=[tf.keras.metrics.CategoricalAccuracy()])
 
-                gradients = tape.gradient(loss, model.trainable_variables)
-                optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-                training_loss.update_state(loss)
-                train_accuracy.update_state(labels, predictions)
-                return loss
-
-            def validation_step(images, labels):
-                predictions = model(images, training=False)
-                v_loss = loss_object(labels, predictions)
-
-                validation_loss.update_state(v_loss)
-                validation_accuracy.update_state(labels, predictions)
-
-            @tf.function
-            def distributed_train_step(dataset_inputs):
-                per_replica_losses = self.strategy.run(train_step, args=(dataset_inputs))
-                return self.strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
-
-            @tf.function
-            def distributed_validation_step(dataset_inputs):
-                return self.strategy.run(validation_step, args=(dataset_inputs))
-
-            loss_object = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-
-            def compute_loss(labels, predictions):
-                per_example_loss = loss_object(labels, predictions)
-                return tf.nn.compute_average_loss(per_example_loss, global_batch_size=self.config['global_batch_size'])
-
-            validation_loss = tf.keras.metrics.Mean(name='val_loss')
-            training_loss = tf.keras.metrics.Mean(name='loss')
-            train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='accuracy')
-            validation_accuracy = tf.keras.metrics.CategoricalAccuracy(name='val_accuracy')
-
-            model = self.build_model()
-
-            optimizer = tf.keras.optimizers.Adam(learning_rate=self.config['learning_rate'],
-                                 beta_1=self.config['beta_1'], beta_2=self.config['beta_2'])
-
-            checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
+        # Callbacks
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                          restore_best_weights=True,
+                                                          patience=self.config['patience'])
 
         if self.config['save_weights'] == 'true':
-            checkpoint_manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
+            os.makedirs(checkpoint_directory)
+        checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_directory+'/training_checkpoints', save_weights_only=True,
+                                                        save_best_only=True, monitor='val_loss')
 
-        start = time()
-        for epoch in range(self.config['epochs']):
-            # TRAIN LOOP
-            total_loss = 0.0
-            num_batches = 0
-            for x in train:
-                total_loss += distributed_train_step(x)
-                num_batches += 1
-            train_loss = total_loss / num_batches
+        # Train model
+        if self.config['save_weights'] == 'true':
+            hist = model.fit(train, batch_size=self.config['batch_size'], epochs=self.config['epochs'],
+                             callbacks=[early_stopping, checkpoint], validation_data=validation)
+        else:
+            hist = model.fit(train, batch_size=self.config['batch_size'], epochs=self.config['epochs'],
+                             callbacks=[early_stopping], validation_data=validation)
 
-            # VALIDATION LOOP
-            for x in validation:
-                distributed_validation_step(x)
+        return hist, model
 
-            if (epoch+1 % 5 == 0) and (epoch+1 != self.config['epochs']):  # save every fifth epoch's weights, so long as this not last epoch
-                if self.config['save_weights'] == 'true':
-                    checkpoint_manager.save()
-            if epoch+1 == self.config['epochs']:  # save on last epoch
-                if self.config['save_weights'] == 'true':
-                    checkpoint_manager.save()
-
-            template = ("Epoch {}, Cumulative Runtime (min) {:.2f} Loss: {:.4f}, Accuracy: {:.4f}, Validation Loss: {:.4f}, "
-                        "Validation Accuracy: {:.4f}")
-            print(template.format(epoch + 1, (time()-start)/60, train_loss,
-                                  train_accuracy.result(), validation_loss.result(),
-                                  validation_accuracy.result()))
-
-            performance_metrics[epoch+1] = [train_loss.numpy(), train_accuracy.result().numpy(),
-                                           validation_loss.result().numpy(),
-                                           validation_accuracy.result().numpy()]
-
-            validation_loss.reset_states()
-            train_accuracy.reset_states()
-            validation_accuracy.reset_states()
-
-        df = pd.DataFrame(columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy']).from_dict(performance_metrics, orient='index', columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy'])
-        df.to_csv(os.path.join(log_dir, 'metrics.csv'), index=True)
-
-
-        # Evaluate on unseen data
-        test_accuracy = tf.keras.metrics.CategoricalAccuracy('test_accuracy')
-
-        @tf.function
-        def eval_step(images, labels):
-            predictions = model(images, training=False)
-            test_accuracy(labels, predictions)
-
-        for images, labels in test:
-            eval_step(images, labels)
-
-        print("Categorical Accuracy on unseen data: {:.4f}".format(test_accuracy.result().numpy()))
 
 
 def make_fig(train: pd.Series, val: pd.Series, output_path: str, loss: bool =True):
@@ -276,7 +201,7 @@ def parse_opt():
     parser.add_argument('--data', type=str, default='./data/scraped_images', help='path to root directory where scraped vehicle images stored')
     parser.add_argument('--output', type=str, help='path to output results', required=True)
     parser.add_argument('--img-size', type=tuple, default=(224, 224), help='image size h,w')
-    parser.add_argument('--batch-size', type=int, default=32, help='batch size per replica. This number will be multiplied with the number of devices to yield global batch size')
+    parser.add_argument('--batch-size', type=int, default=32, help='batch size')
     parser.add_argument('--logging', type=str, choices=['true', 'false'], default='true', help='turn off/on script logging, e.g. for CLI debugging')
     parser.add_argument('--seed', type=int, default=123, help='seed value for random number generator')
     parser.add_argument('--min-bbox-area', type=int, default=10000, help='minimum pixel area of bounding box, otherwise image excluded')
@@ -297,7 +222,7 @@ def parse_opt():
     parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
     parser.add_argument('--dropout', type=float, default=0.4, help='dropout share in model')
-    parser.add_argument('--units', type=int, default=1024, help='number of fully-connected units in second to last dense layer')
+    parser.add_argument('--patience', type=int, default=3, help='patience parameter for model early stopping')
     # Predict param
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
@@ -305,6 +230,7 @@ def parse_opt():
     assert (args.share_grayscale >= 0.0 and args.share_grayscale <= 1.0), "share-greyscale is bounded between 0-1!"
     assert (args.confidence >= 0.0 and args.confidence <= 1.0), "confidence is bounded between 0-1!"
     assert (args.validation_size >= 0.0 and args.validation_size <= 1.0), "validation size is a proportion and bounded between 0-1!"
+    assert (args.img_size == (224, 224)), "image size is only currently supported for 224 pixels wide by 224 pixels high"
     return args
 
 def main(opt):
@@ -337,16 +263,26 @@ def main(opt):
     else:
         train, validation, test = mnc.image_pipeline(predict=False)
 
-        mnc.train_model(train, validation, test, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
+        hist, model = mnc.train_model(train, validation, test, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
-        # Generate performance metrics by epoch
-        df = pd.read_csv(os.path.join(log_dir, 'metrics.csv')).set_index('Unnamed: 0')
+        if opt.test_size*100 > 0:
+            results = model.evaluate(test, batch_size=opt.batch_size)
+            print("Model results in unseen data: Loss {:.3f}, Accuracy {:.3f}".format(results[0], results[1]))
+
+        # Get model performance by epoch
+        df = pd.DataFrame().from_dict(hist.history, orient='columns').reset_index()
+        df['index'] = df['index'] + 1
+        df.rename(columns={'index': 'epoch', 'categorical_accuracy': 'accuracy', 'val_categorical_accuracy': 'val_accuracy'}, inplace=True)
+        df.to_csv(os.path.join(log_dir, 'metrics.csv'), index=True)
+
+        # Generate performance metric figures
+        df = df.set_index('epoch')
         output_path = os.path.join(log_dir, '..', 'figs')
         os.makedirs(output_path, exist_ok=True)  # Creates output directory if not existing
 
-        make_fig(train=df['Loss'], val=df['Val Loss'], output_path=output_path, loss=True)
-        make_fig(train=df['Accuracy'], val=df['Val Accuracy'], output_path=output_path, loss=False)
 
+        make_fig(train=df['loss'], val=df['val_loss'], output_path=output_path, loss=True)
+        make_fig(train=df['accuracy'], val=df['val_accuracy'], output_path=output_path, loss=False)
 
 
 if __name__ == '__main__':

@@ -9,23 +9,11 @@ tf.config.optimizer.set_jit(True)
 
 # Configure distributed training across GPUs, if available
 print("Num GPUs Available: ", len(tf.config.list_physical_devices("GPU")))
-if tf.config.list_physical_devices('GPU'):
-
-    # Limit memory usage
-    for dev in tf.config.list_physical_devices('GPU'):
-        tf.config.experimental.set_memory_growth(dev, True)
-
-    strategy = tf.distribute.MirroredStrategy()  # uses all GPUs available in container
-
-else:  # Use the Default Strategy
-    strategy = tf.distribute.OneDeviceStrategy('/CPU:0')  # use for debugging
 
 
 class ClassifierCore(ABC):
     def __init__(self, config):
         self.config = config
-        self.config['global_batch_size'] = self.config['batch_size'] * strategy.num_replicas_in_sync
-        self.strategy = strategy
 
     def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 10000):
         """
