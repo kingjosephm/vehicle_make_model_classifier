@@ -1,3 +1,5 @@
+import pdb
+
 from core import ClassifierCore
 import os
 import argparse
@@ -8,6 +10,7 @@ from tensorflow.keras.applications import mobilenet_v2
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
+from time import time
 
 """
     Credit: 
@@ -97,6 +100,7 @@ class MobileNetClassifier(ClassifierCore):
             # Prefetch and batch
             train = train.batch(self.config['global_batch_size'])
             validation = validation.batch(self.config['global_batch_size'])
+            test = test.batch(self.config['global_batch_size'])
             train = train.prefetch(buffer_size=tf.data.AUTOTUNE)
             validation = validation.prefetch(buffer_size=tf.data.AUTOTUNE)
 
@@ -132,7 +136,7 @@ class MobileNetClassifier(ClassifierCore):
         return model
 
 
-    def train_model(self, train: tf.Tensor, validation: tf.Tensor, checkpoint_directory: str):
+    def train_model(self, train: tf.Tensor, validation: tf.Tensor, test: tf.Tensor, checkpoint_directory: str):
 
         performance_metrics = {}
         log_dir = os.path.join(checkpoint_directory, '..', 'logs')
@@ -198,6 +202,7 @@ class MobileNetClassifier(ClassifierCore):
         if self.config['save_weights']:
             checkpoint_manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
 
+        start = time()
         for epoch in range(self.config['epochs']):
             # TRAIN LOOP
             total_loss = 0.0
@@ -211,16 +216,16 @@ class MobileNetClassifier(ClassifierCore):
             for x in validation:
                 distributed_validation_step(x)
 
-            if epoch+1 % 5 == 0:
+            if (epoch+1 % 5 == 0) and (epoch+1 != self.config['epochs']):  # save every fifth epoch's weights, so long as this not last epoch
                 if self.config['save_weights']:
                     checkpoint_manager.save()
-            if epoch+1 == self.config['epochs']:  # save on last epoch if desired
+            if epoch+1 == self.config['epochs']:  # save on last epoch
                 if self.config['save_weights']:
                     checkpoint_manager.save()
 
-            template = ("Epoch {}, Loss: {}, Accuracy: {}, Validation Loss: {}, "
-                        "Validation Accuracy: {}")
-            print(template.format(epoch + 1, train_loss,
+            template = ("Epoch {}, Cumulative Runtime (min) {:.2f} Loss: {:.4f}, Accuracy: {:.4f}, Validation Loss: {:.4f}, "
+                        "Validation Accuracy: {:.4f}")
+            print(template.format(epoch + 1, (time()-start)/60, train_loss,
                                   train_accuracy.result(), validation_loss.result(),
                                   validation_accuracy.result()))
 
@@ -235,6 +240,20 @@ class MobileNetClassifier(ClassifierCore):
         if self.config['save_train_metrics']:
             df = pd.DataFrame(columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy']).from_dict(performance_metrics, orient='index', columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy'])
             df.to_csv(os.path.join(log_dir, 'metrics.csv'), index=True)
+
+
+        # Evaluate on unseen data
+        test_accuracy = tf.keras.metrics.CategoricalAccuracy('test_accuracy')
+
+        @tf.function
+        def eval_step(images, labels):
+            predictions = model(images, training=False)
+            test_accuracy(labels, predictions)
+
+        for images, labels in test:
+            eval_step(images, labels)
+
+        print("Categorical Accuracy on unseen data: {:.4f}".format(test_accuracy.result().numpy()))
 
 
 def make_fig(train: pd.Series, val: pd.Series, output_path: str, loss: bool =True):
@@ -330,7 +349,7 @@ def main(opt):
     else:
         train, validation, test = mnc.image_pipeline(predict=False)
 
-        mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
+        mnc.train_model(train, validation, test, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
         if opt.save_train_metrics:
             # Generate performance metrics by epoch
