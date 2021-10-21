@@ -140,8 +140,7 @@ class MobileNetClassifier(ClassifierCore):
 
         performance_metrics = {}
         log_dir = os.path.join(checkpoint_directory, '..', 'logs')
-        if self.config['save_train_metrics']:
-            os.makedirs(log_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
 
         with self.strategy.scope():
 
@@ -191,7 +190,7 @@ class MobileNetClassifier(ClassifierCore):
 
             checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
 
-        if self.config['save_weights']:
+        if self.config['save_weights'] == 'true':
             checkpoint_manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
 
         start = time()
@@ -209,10 +208,10 @@ class MobileNetClassifier(ClassifierCore):
                 distributed_validation_step(x)
 
             if (epoch+1 % 5 == 0) and (epoch+1 != self.config['epochs']):  # save every fifth epoch's weights, so long as this not last epoch
-                if self.config['save_weights']:
+                if self.config['save_weights'] == 'true':
                     checkpoint_manager.save()
             if epoch+1 == self.config['epochs']:  # save on last epoch
-                if self.config['save_weights']:
+                if self.config['save_weights'] == 'true':
                     checkpoint_manager.save()
 
             template = ("Epoch {}, Cumulative Runtime (min) {:.2f} Loss: {:.4f}, Accuracy: {:.4f}, Validation Loss: {:.4f}, "
@@ -229,9 +228,8 @@ class MobileNetClassifier(ClassifierCore):
             train_accuracy.reset_states()
             validation_accuracy.reset_states()
 
-        if self.config['save_train_metrics']:
-            df = pd.DataFrame(columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy']).from_dict(performance_metrics, orient='index', columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy'])
-            df.to_csv(os.path.join(log_dir, 'metrics.csv'), index=True)
+        df = pd.DataFrame(columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy']).from_dict(performance_metrics, orient='index', columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy'])
+        df.to_csv(os.path.join(log_dir, 'metrics.csv'), index=True)
 
 
         # Evaluate on unseen data
@@ -279,8 +277,7 @@ def parse_opt():
     parser.add_argument('--output', type=str, help='path to output results', required=True)
     parser.add_argument('--img-size', type=tuple, default=(224, 224), help='image size h,w')
     parser.add_argument('--batch-size', type=int, default=32, help='batch size per replica. This number will be multiplied with the number of devices to yield global batch size')
-    parser.add_argument('--no-log', action='store_true', help='turn off script logging, e.g. for CLI debugging')
-    parser.add_argument('--crop-image', type=bool, default=True, help='whether or not to crop input image using YOLOv5 prior to classification')
+    parser.add_argument('--logging', type=str, choices=['true', 'false'], default='true', help='turn off/on script logging, e.g. for CLI debugging')
     parser.add_argument('--seed', type=int, default=123, help='seed value for random number generator')
     parser.add_argument('--min-bbox-area', type=int, default=10000, help='minimum pixel area of bounding box, otherwise image excluded')
     parser.add_argument('--sample', type=float, default=1.0, help='share of image-df rows to sample, default 1.0. Used for debugging')
@@ -292,14 +289,13 @@ def parse_opt():
     parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train')
     parser.add_argument('--validation-size', type=float, default=0.2, help='validation set size as share of number of training images')
     parser.add_argument('--test-size', type=float, default=0.05, help='holdout test set size as share of number of training images')
-    parser.add_argument('--save-weights', type=bool, default=True, help='save model checkpoints and weights')
+    parser.add_argument('--save-weights', type=str, choices=['true', 'false'], default='true', help='save model checkpoints and weights')
     parser.add_argument('--share-grayscale', type=float, default=0.5, help='share of training images to read in as greyscale')
     parser.add_argument('--confidence', type=float, default=0.70, help='object confidence level for YOLOv5 bounding box')
     parser.add_argument('--mobilenetv2-alpha', type=str, default='1.0', choices=['1.0', '0.75', '0.5', '0.35'], help='width multiplier in the MobileNetV2, options are 1.0, 0.75, 0.5, or 0.35')
     parser.add_argument('--learning-rate', type=float, default=0.001, help='Adam optimizer learning rate')
     parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
-    parser.add_argument('--save-train-metrics', type=bool, default=True, help='whether or not to save training performance metrics per epoch')
     parser.add_argument('--dropout', type=float, default=0.4, help='dropout share in model')
     parser.add_argument('--units', type=int, default=1024, help='number of fully-connected units in second to last dense layer')
     # Predict param
@@ -325,7 +321,7 @@ def main(opt):
     # Log results
     log_dir = os.path.join(full_path, 'logs')
     os.makedirs(log_dir, exist_ok=True)
-    if not opt.no_log:
+    if opt.logging == 'true':
         sys.stdout = open(os.path.join(log_dir, "Log.txt"), "w")
         sys.stderr = sys.stdout
 
@@ -343,14 +339,13 @@ def main(opt):
 
         mnc.train_model(train, validation, test, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
-        if opt.save_train_metrics:
-            # Generate performance metrics by epoch
-            df = pd.read_csv(os.path.join(log_dir, 'metrics.csv')).set_index('Unnamed: 0')
-            output_path = os.path.join(log_dir, '..', 'figs')
-            os.makedirs(output_path, exist_ok=True)  # Creates output directory if not existing
+        # Generate performance metrics by epoch
+        df = pd.read_csv(os.path.join(log_dir, 'metrics.csv')).set_index('Unnamed: 0')
+        output_path = os.path.join(log_dir, '..', 'figs')
+        os.makedirs(output_path, exist_ok=True)  # Creates output directory if not existing
 
-            make_fig(train=df['Loss'], val=df['Val Loss'], output_path=output_path, loss=True)
-            make_fig(train=df['Accuracy'], val=df['Val Accuracy'], output_path=output_path, loss=False)
+        make_fig(train=df['Loss'], val=df['Val Loss'], output_path=output_path, loss=True)
+        make_fig(train=df['Accuracy'], val=df['Val Accuracy'], output_path=output_path, loss=False)
 
 
 
