@@ -128,8 +128,6 @@ class MobileNetClassifier(ClassifierCore):
         x = mobilenet_layer(x, training=False)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(self.config['dropout'])(x)
-        x = tf.keras.layers.Dense(self.config['units'], activation='relu')(x)
-        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
         output = tf.keras.layers.Dense(self.df.iloc[:, 2:].shape[1], activation='softmax')(x)
         model = tf.keras.Model(inputs, output)
 
@@ -297,7 +295,6 @@ def parse_opt():
     parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
     parser.add_argument('--dropout', type=float, default=0.4, help='dropout share in model')
-    parser.add_argument('--units', type=int, default=1024, help='number of fully-connected units in second to last dense layer')
     # Predict param
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
