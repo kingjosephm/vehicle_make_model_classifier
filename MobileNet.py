@@ -109,9 +109,14 @@ class MobileNetClassifier(ClassifierCore):
         """
 
         # Instantiate MobileNetv2 layer
-        mobilenet_layer = mobilenet_v2.MobileNetV2(input_shape=(self.config['img_size'] + (3,)),
-                                         include_top=False,
-                                         weights=f"./pretrained_weights/mobilenet_v2_weights_tf_dim_ordering_tf_kernels_{self.config['mobilenetv2_alpha']}_{self.config['img_size'][0]}_no_top.h5")
+        try:
+            mobilenet_layer = mobilenet_v2.MobileNetV2(input_shape=(self.config['img_size'] + (3,)),
+                                             include_top=False,
+                                             weights=f"./pretrained_weights/mobilenet_v2_weights_tf_dim_ordering_tf_kernels_{self.config['mobilenetv2_alpha']}_{self.config['img_size'][0]}_no_top.h5")
+        except ValueError:
+            mobilenet_layer = mobilenet_v2.MobileNetV2(input_shape=(self.config['img_size'] + (3,)),
+                                             include_top=False,
+                                             weights=f"./scripts/mobilenet_v2_weights_tf_dim_ordering_tf_kernels_{self.config['mobilenetv2_alpha']}_{self.config['img_size'][0]}_no_top.h5")
 
         mobilenet_layer.trainable = False
 
