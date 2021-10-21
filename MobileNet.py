@@ -99,10 +99,6 @@ class MobileNetClassifier(ClassifierCore):
             train = train.prefetch(buffer_size=tf.data.AUTOTUNE)
             validation = validation.prefetch(buffer_size=tf.data.AUTOTUNE)
 
-            # Distributed dataset
-            train = self.strategy.experimental_distribute_dataset(train)
-            validation = self.strategy.experimental_distribute_dataset(validation)
-
         return train, validation, test
 
     def build_model(self):
@@ -123,7 +119,7 @@ class MobileNetClassifier(ClassifierCore):
         x = mobilenet_v2.preprocess_input(inputs)  # handles image normalization
         x = mobilenet_layer(x, training=False)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dropout(0.2)(x)
+        x = tf.keras.layers.Dropout(0.5)(x)
         output = tf.keras.layers.Dense(self.df.iloc[:, 2:].shape[1], activation='softmax')(x)
         model = tf.keras.Model(inputs, output)
 
