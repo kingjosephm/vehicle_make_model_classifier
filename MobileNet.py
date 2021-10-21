@@ -267,6 +267,7 @@ def parse_opt():
     parser.add_argument('--crop-image', type=bool, default=True, help='whether or not to crop input image using YOLOv5 prior to classification')
     parser.add_argument('--seed', type=int, default=123, help='seed value for random number generator')
     parser.add_argument('--min-bbox-area', type=int, default=10000, help='minimum pixel area of bounding box, otherwise image excluded')
+    parser.add_argument('--sample', type=float, default=1.0, help='share of image-df rows to sample, default 1.0. Used for debugging')
     # Mode
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--train', action='store_true', help='train model using data')

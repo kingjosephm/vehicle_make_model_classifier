@@ -81,7 +81,7 @@ class ClassifierCore(ABC):
         df = pd.concat([df[['Source Path', 'Bboxes']], dummies], axis=1)
 
         # Shuffle data
-        df = df.sample(frac=1.0, random_state=self.config['seed']).reset_index(drop=True)
+        df = df.sample(frac=self.config['sample'], random_state=self.config['seed']).reset_index(drop=True)
 
         return df, label_mapping
 
