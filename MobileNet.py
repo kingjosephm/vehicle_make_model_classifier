@@ -71,7 +71,7 @@ class MobileNetClassifier(ClassifierCore):
         else:
 
             # Partition df into test, validation, and train splits, where train is x% RGB and 1-x% greyscale
-            if self.config['test_size'] > 0:
+            if self.config['test_size'] != 0:
                 test = self.df.sample(frac=self.config['test_size'], random_state=self.config['seed'])
             else:
                 test = pd.DataFrame()
@@ -160,13 +160,14 @@ class MobileNetClassifier(ClassifierCore):
                                                         save_best_only=True, monitor='val_loss')
 
         # Train model
+        start = time()
         if self.config['save_weights'] == 'true':
             hist = model.fit(train, batch_size=self.config['batch_size'], epochs=self.config['epochs'],
                              callbacks=[early_stopping, checkpoint], validation_data=validation)
         else:
             hist = model.fit(train, batch_size=self.config['batch_size'], epochs=self.config['epochs'],
                              callbacks=[early_stopping], validation_data=validation)
-
+        print("\nTotal training time in minutes: {:.2f}\n".format((time()-start)/60))
         return hist, model
 
 
@@ -265,7 +266,7 @@ def main(opt):
 
         hist, model = mnc.train_model(train, validation, test, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
-        if opt.test_size*100 > 0:
+        if opt.test_size != 0:
             results = model.evaluate(test, batch_size=opt.batch_size)
             print("Model results in unseen data: Loss {:.3f}, Accuracy {:.3f}".format(results[0], results[1]))
 
