@@ -1,5 +1,3 @@
-import pdb
-
 from core import ClassifierCore
 import os
 import argparse
@@ -129,7 +127,9 @@ class MobileNetClassifier(ClassifierCore):
         x = mobilenet_v2.preprocess_input(inputs)  # handles image normalization
         x = mobilenet_layer(x, training=False)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dropout(0.5)(x)
+        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
+        x = tf.keras.layers.Dense(self.config['units'], activation='relu')(x)
+        x = tf.keras.layers.Dropout(self.config['dropout'])(x)
         output = tf.keras.layers.Dense(self.df.iloc[:, 2:].shape[1], activation='softmax')(x)
         model = tf.keras.Model(inputs, output)
 
@@ -190,14 +190,6 @@ class MobileNetClassifier(ClassifierCore):
                                  beta_1=self.config['beta_1'], beta_2=self.config['beta_2'])
 
             checkpoint = tf.train.Checkpoint(optimizer=optimizer, model=model)
-            '''
-            # Early stopping
-            stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-
-            model.compile(optimizer=optimizer, batch_size=self.config['global_batch_size'],
-                          loss=loss_object, callbacks=[stopping],
-                          metrics=['accuracy'])
-            '''
 
         if self.config['save_weights']:
             checkpoint_manager = tf.train.CheckpointManager(checkpoint, checkpoint_directory, max_to_keep=3)
@@ -300,9 +292,7 @@ def parse_opt():
     parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train')
     parser.add_argument('--validation-size', type=float, default=0.2, help='validation set size as share of number of training images')
     parser.add_argument('--test-size', type=float, default=0.05, help='holdout test set size as share of number of training images')
-    group2 = parser.add_mutually_exclusive_group(required='--train' in sys.argv)
-    group2.add_argument('--save-weights', action='store_true', help='save model checkpoints and weights')
-    group2.add_argument('--no-save-weights', action='store_true', help='do not save model checkpoints or weights')
+    parser.add_argument('--save-weights', type=bool, default=True, help='save model checkpoints and weights')
     parser.add_argument('--share-grayscale', type=float, default=0.5, help='share of training images to read in as greyscale')
     parser.add_argument('--confidence', type=float, default=0.70, help='object confidence level for YOLOv5 bounding box')
     parser.add_argument('--mobilenetv2-alpha', type=str, default='1.0', choices=['1.0', '0.75', '0.5', '0.35'], help='width multiplier in the MobileNetV2, options are 1.0, 0.75, 0.5, or 0.35')
@@ -310,6 +300,8 @@ def parse_opt():
     parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
     parser.add_argument('--save-train-metrics', type=bool, default=True, help='whether or not to save training performance metrics per epoch')
+    parser.add_argument('--dropout', type=float, default=0.4, help='dropout share in model')
+    parser.add_argument('--units', type=int, default=1024, help='number of fully-connected units in second to last dense layer')
     # Predict param
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
