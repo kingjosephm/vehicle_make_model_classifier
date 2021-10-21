@@ -7,7 +7,6 @@ import tensorflow as tf
 from tensorflow.keras.applications import mobilenet_v2
 import json
 import pandas as pd
-import pdb
 
 """
     Credit: 
@@ -18,7 +17,7 @@ import pdb
 class MobileNetClassifier(ClassifierCore):
     def __init__(self, config):
         super().__init__(config)
-        self.df, self.label_mapping = super().read_dataframe(self.config['img_df_path'])  # TODO - how handle predict mode?
+        self.df, self.label_mapping = super().read_dataframe(self.config['img_df'])  # TODO - how handle predict mode?
 
     def process_image_train(self, image_file, bboxes: tf.Tensor, labels: tuple):
         """
@@ -78,15 +77,15 @@ class MobileNetClassifier(ClassifierCore):
             # Convert to tensorflow dataset
             test = tf.data.Dataset.from_tensor_slices(
                 (test['Source Path'], tf.cast(list(test['Bboxes']), tf.int32),
-                 (tf.one_hot(test['Make-Model'], depth=self.df['Make-Model'].nunique()))))
+                 (test.iloc[:, 2:])))
 
             validation = tf.data.Dataset.from_tensor_slices(
                 (validation['Source Path'], tf.cast(list(validation['Bboxes']), tf.int32),
-                 (tf.one_hot(validation['Make-Model'], depth=self.df['Make-Model'].nunique()))))
+                 (validation.iloc[:, 2:])))
 
             train = tf.data.Dataset.from_tensor_slices(
                 (train['Source Path'], tf.cast(list(train['Bboxes']), tf.int32),
-                 (tf.one_hot(train['Make-Model'], depth=self.df['Make-Model'].nunique()))))
+                 (train.iloc[:, 2:])))
 
             # Mapping function to read and adjust images
             # Note - large datasets should not be cached since cannot all fit in memory at once
@@ -125,7 +124,7 @@ class MobileNetClassifier(ClassifierCore):
         x = mobilenet_layer(x, training=False)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(0.2)(x)
-        output = tf.keras.layers.Dense(self.df['Make-Model'].nunique(), activation='softmax')(x)
+        output = tf.keras.layers.Dense(self.df.iloc[:, 2:].shape[1], activation='softmax')(x)
         model = tf.keras.Model(inputs, output)
 
         return model
@@ -232,14 +231,14 @@ class MobileNetClassifier(ClassifierCore):
             validation_accuracy.reset_states()
 
         if self.config['save_train_metrics']:
-            df = pd.DataFrame(columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy']).from_dict(performance_metrics, orient='columns', columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy'])
+            df = pd.DataFrame(columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy']).from_dict(performance_metrics, orient='index', columns=['Loss', 'Accuracy', 'Val Loss', 'Val Accuracy'])
             df.to_csv(os.path.join(log_dir, 'metrics.csv'), index=True)
 
 
 def parse_opt():
     parser = argparse.ArgumentParser()
     # Apply to train or predict modes
-    parser.add_argument('--img-df-path', type=str, help='path to dataframe containing image paths and labels', required=True)  # TODO - accept dir path for predict?
+    parser.add_argument('--img-df', type=str, help='path to dataframe containing relative image paths and labels', required=True)  # TODO - accept dir path for predict?
     parser.add_argument('--data', type=str, default='./data/scraped_images', help='path to root directory where scraped vehicle images stored')
     parser.add_argument('--output', type=str, help='path to output results', required=True)
     parser.add_argument('--img-size', type=tuple, default=(224, 224), help='image size h,w')

@@ -58,19 +58,30 @@ class ClassifierCore(ABC):
         df['Source Path'] = df['Source Path'].apply(lambda x: self.config['data'] + '/' + x)
 
         # Rearrange
-        df = df[['Make-Model', 'Category', 'Source Path', 'Bboxes']]\
-            .sample(frac=1.0, random_state=self.config['seed']).reset_index(drop=True)
+        df = df[['Make', 'Make-Model', 'Category', 'Source Path', 'Bboxes']]
 
         # Convert Make-Model to int, generate label mapping
         df['Make-Model'] = df['Make-Model'].astype('category')
-        temp = dict(zip(df['Make-Model'].cat.codes, df['Make-Model'].cat.categories))
+
+        temp = dict(zip(df['Make-Model'].drop_duplicates().cat.codes, df['Make-Model'].cat.categories))
 
         # Attach category of vehicle to mapping
         label_mapping = {}
         for key, val in temp.items():
-            label_mapping[key] = [val, df.loc[df['Make-Model'] == temp[key]]['Category'].drop_duplicates().values[0]]
+            label_mapping[key] = [val, df.loc[df['Make-Model'] == temp[key]]['Make'].drop_duplicates().values[0],
+                                  df.loc[df['Make-Model'] == temp[key]]['Category'].drop_duplicates().values[0]]
 
         df['Make-Model'] = df['Make-Model'].astype('category').cat.codes  # Converts to int
+
+        # Convert Make-Model to onehot encodings
+        dummies = pd.get_dummies(df['Make-Model'], prefix='')
+        dummies.columns = [i[1:] for i in dummies.columns]
+
+        # Concat together
+        df = pd.concat([df[['Source Path', 'Bboxes']], dummies], axis=1)
+
+        # Shuffle data
+        df = df.sample(frac=1.0, random_state=self.config['seed']).reset_index(drop=True)
 
         return df, label_mapping
 
