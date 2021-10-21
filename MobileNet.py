@@ -7,6 +7,7 @@ import tensorflow as tf
 from tensorflow.keras.applications import mobilenet_v2
 import json
 import pandas as pd
+import matplotlib.pyplot as plt
 
 """
     Credit: 
@@ -231,6 +232,29 @@ class MobileNetClassifier(ClassifierCore):
             df.to_csv(os.path.join(log_dir, 'metrics.csv'), index=True)
 
 
+def make_fig(train: pd.Series, val: pd.Series, output_path: str, loss: bool =True):
+    '''
+    Creates two line graphs in same figure using Matplotlib. Outputs as PNG to disk.
+    :param train: pd.Series, loss/accuracy metrics by epoch for training set
+    :param val:  pd.Series, loss/accuracy metrics by epoch for validation set
+    :param output_path: str, path to output PNG
+    :return: None, writes figure to disk
+    '''
+    plt.figure(figsize=(10, 8), dpi=80)
+    plt.plot(train, label='Train', linewidth=2)
+    plt.plot(val, label='Validation', linewidth=2)
+    plt.xlabel('Epochs')
+    if loss:
+        plt.ylabel('Categorical Crossentropy Loss')
+        title = 'Loss by Epoch'
+    else:
+        plt.ylabel('Categorical Accuracy')
+        title = 'Accuracy by Epoch'
+    plt.title(title)
+    plt.legend()
+    plt.savefig(os.path.join(output_path, f"{''.join(title.split()[0])}.png"), dpi=200)
+    plt.close()
+
 def parse_opt():
     parser = argparse.ArgumentParser()
     # Apply to train or predict modes
@@ -301,6 +325,15 @@ def main(opt):
         train, validation, test = mnc.image_pipeline(predict=False)
 
         mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
+
+        if opt.save_train_metrics:
+            # Generate performance metrics by epoch
+            df = pd.read_csv(os.path.join(log_dir, 'metrics.csv')).set_index('Unnamed: 0')
+            output_path = os.path.join(log_dir, '..', 'figs')
+            os.makedirs(output_path, exist_ok=True)  # Creates output directory if not existing
+
+            make_fig(train=df['Loss'], val=df['Val Loss'], output_path=output_path, loss=True)
+            make_fig(train=df['Accuracy'], val=df['Val Accuracy'], output_path=output_path, loss=False)
 
 
 
