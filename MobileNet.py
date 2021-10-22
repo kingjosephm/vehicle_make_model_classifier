@@ -61,6 +61,25 @@ class MobileNetClassifier(ClassifierCore):
         image = super().resize(image, height=self.config['img_size'][0], width=self.config['img_size'][1])
         return image, labels
 
+    def create_balanced_df(self, df: pd.DataFrame):
+        """
+        Samples elements at random from the datasets in df
+        :param df: pd.DataFrame
+        :return: tensorflow.python.data.experimental.ops.interleave_ops._DirectedInterleaveDataset
+        """
+        categories = df.columns.tolist()[2:]
+        df_list = []
+        for x in categories:
+            temp = df.loc[df[x] == 1]
+            tf_df = tf.data.Dataset.from_tensor_slices(
+                (temp['Source Path'], tf.cast(list(temp['Bboxes']), tf.int32), (temp.iloc[:, 2:])))
+            tf_df = tf_df.shuffle(buffer_size=1000000)
+            df_list.append(tf_df)
+
+        balanced_train = tf.data.experimental.sample_from_datasets(df_list, weights=[(1 / len(df_list))] * len(df_list))
+
+        return balanced_train
+
     def image_pipeline(self, predict=False):
         print("\nReading in and processing images.\n", flush=True)
 
@@ -79,18 +98,14 @@ class MobileNetClassifier(ClassifierCore):
             validation = df.sample(frac=self.config['validation_size'], random_state=self.config['seed'])
             train = df[~df.index.isin(validation.index)]
 
-            # Convert to tensorflow dataset
+            # Convert to tensorflow dataframe
+            # For validation and train yield balanced dataframe
+            validation = self.create_balanced_df(validation)
+
+            train = self.create_balanced_df(train)
+
             test = tf.data.Dataset.from_tensor_slices(
-                (test['Source Path'], tf.cast(list(test['Bboxes']), tf.int32),
-                 (test.iloc[:, 2:])))
-
-            validation = tf.data.Dataset.from_tensor_slices(
-                (validation['Source Path'], tf.cast(list(validation['Bboxes']), tf.int32),
-                 (validation.iloc[:, 2:])))
-
-            train = tf.data.Dataset.from_tensor_slices(
-                (train['Source Path'], tf.cast(list(train['Bboxes']), tf.int32),
-                 (train.iloc[:, 2:])))
+                (test['Source Path'], tf.cast(list(test['Bboxes']), tf.int32), (test.iloc[:, 2:])))
 
             # Mapping function to read and adjust images
             # Note - large datasets should not be cached since cannot all fit in memory at once
@@ -99,11 +114,9 @@ class MobileNetClassifier(ClassifierCore):
             train = train.map(self.process_image_train, num_parallel_calls=tf.data.AUTOTUNE)
 
             # Prefetch and batch
-            train = train.batch(self.config['batch_size'])
-            validation = validation.batch(self.config['batch_size'])
+            train = train.batch(self.config['batch_size']).prefetch(buffer_size=tf.data.AUTOTUNE)
+            validation = validation.batch(self.config['batch_size']).prefetch(buffer_size=tf.data.AUTOTUNE)
             test = test.batch(self.config['batch_size'])
-            train = train.prefetch(buffer_size=tf.data.AUTOTUNE)
-            validation = validation.prefetch(buffer_size=tf.data.AUTOTUNE)
 
         return train, validation, test
 
@@ -137,7 +150,7 @@ class MobileNetClassifier(ClassifierCore):
         return model
 
 
-    def train_model(self, train: tf.Tensor, validation: tf.Tensor, test: tf.Tensor, checkpoint_directory: str):
+    def train_model(self, train: tf.Tensor, validation: tf.Tensor, checkpoint_directory: str):
 
         # Compile model
         model = self.build_model()
@@ -185,7 +198,7 @@ def make_fig(train: pd.Series, val: pd.Series, output_path: str, loss: bool =Tru
     plt.plot(val, label='Validation', linewidth=2)
     plt.xlabel('Epochs')
     if loss:
-        plt.ylabel('Categorical Crossentropy Loss')
+        plt.ylabel('Crossentropy Loss')
         title = 'Loss by Epoch'
     else:
         plt.ylabel('Categorical Accuracy')
@@ -264,7 +277,7 @@ def main(opt):
     else:
         train, validation, test = mnc.image_pipeline(predict=False)
 
-        hist, model = mnc.train_model(train, validation, test, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
+        hist, model = mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
         if opt.test_size != 0:
             results = model.evaluate(test, batch_size=opt.batch_size)
