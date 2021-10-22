@@ -73,7 +73,7 @@ class MobileNetClassifier(ClassifierCore):
             temp = df.loc[df[x] == 1]
             tf_df = tf.data.Dataset.from_tensor_slices(
                 (temp['Source Path'], tf.cast(list(temp['Bboxes']), tf.int32), (temp.iloc[:, 2:])))
-            tf_df = tf_df.shuffle(buffer_size=1000000)
+            #tf_df = tf_df.shuffle(buffer_size=1000000)
             df_list.append(tf_df)
 
         balanced_train = tf.data.experimental.sample_from_datasets(df_list, weights=[(1 / len(df_list))] * len(df_list))
@@ -99,10 +99,14 @@ class MobileNetClassifier(ClassifierCore):
             train = df[~df.index.isin(validation.index)]
 
             # Convert to tensorflow dataframe
-            # For validation and train yield balanced dataframe
-            validation = self.create_balanced_df(validation)
-
-            train = self.create_balanced_df(train)
+            if self.config['balance_batches'] == 'true':
+                validation = self.create_balanced_df(validation)
+                train = self.create_balanced_df(train)
+            else:
+                validation = tf.data.Dataset.from_tensor_slices(
+                    (validation['Source Path'], tf.cast(list(validation['Bboxes']), tf.int32), (validation.iloc[:, 2:])))
+                train = tf.data.Dataset.from_tensor_slices(
+                    (train['Source Path'], tf.cast(list(train['Bboxes']), tf.int32), (train.iloc[:, 2:])))
 
             test = tf.data.Dataset.from_tensor_slices(
                 (test['Source Path'], tf.cast(list(test['Bboxes']), tf.int32), (test.iloc[:, 2:])))
@@ -237,6 +241,7 @@ def parse_opt():
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
     parser.add_argument('--dropout', type=float, default=0.4, help='dropout share in model')
     parser.add_argument('--patience', type=int, default=3, help='patience parameter for model early stopping')
+    parser.add_argument('--balance-batches', type=str, default='true', choices=['true', 'false'], help='whether or not to balance classes per mini batch')
     # Predict param
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
@@ -249,6 +254,7 @@ def parse_opt():
 
 def main(opt):
     """
+    Runs script using CLI arguments provided in opt.
     :param opt: argparse.Namespace
     :return: None
     """
@@ -279,9 +285,34 @@ def main(opt):
 
         hist, model = mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
+        # Evaluate using test set
         if opt.test_size != 0:
             results = model.evaluate(test, batch_size=opt.batch_size)
             print("Model results in unseen data: Loss {:.3f}, Accuracy {:.3f}".format(results[0], results[1]))
+
+        predictions = model.predict(test)
+
+        categories = []
+        label_mapping_short = {}
+        for key, val in mnc.label_mapping.items():
+            categories.append(val[0])
+            label_mapping_short[key] = val[0]
+        pred_df = pd.DataFrame(predictions, columns=categories)
+
+        # Recover labels
+        images, labels = tuple(zip(*test))
+
+        label_df = pd.DataFrame()
+        for x in range(len(labels)):
+            label_df = pd.concat([label_df, pd.DataFrame(labels[x].numpy())], axis=0)
+        label_df = label_df.reset_index(drop=True)
+        label_series = label_df.idxmax(axis=1)
+        label_series.replace(to_replace=label_mapping_short, inplace=True)
+
+        pred_df = pd.concat([pred_df, label_series], axis=1).rename(columns={0: 'true_label'})
+
+        pred_df.to_csv(os.path.join(log_dir, 'predictions.csv'), index=False)
+
 
         # Get model performance by epoch
         df = pd.DataFrame().from_dict(hist.history, orient='columns').reset_index()
@@ -293,7 +324,6 @@ def main(opt):
         df = df.set_index('epoch')
         output_path = os.path.join(log_dir, '..', 'figs')
         os.makedirs(output_path, exist_ok=True)  # Creates output directory if not existing
-
 
         make_fig(train=df['loss'], val=df['val_loss'], output_path=output_path, loss=True)
         make_fig(train=df['accuracy'], val=df['val_accuracy'], output_path=output_path, loss=False)
