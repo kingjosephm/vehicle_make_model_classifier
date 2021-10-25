@@ -9,6 +9,8 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 from time import time
+from PIL import ImageFont
+import visualkeras
 
 """
     Credit: 
@@ -284,6 +286,10 @@ def main(opt):
         train, validation, test = mnc.image_pipeline(predict=False)
 
         hist, model = mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
+
+        # Output figure of model structure to disk
+        font = ImageFont.truetype("arial.ttf", 32)
+        visualkeras.layered_view(model, legend=True, font=font, to_file=os.path.join(log_dir, 'model_structure.png'))
 
         # Evaluate using test set
         if opt.test_size != 0:
