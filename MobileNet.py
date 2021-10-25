@@ -150,6 +150,9 @@ class MobileNetClassifier(ClassifierCore):
         x = mobilenet_layer(x, training=False)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(self.config['dropout'])(x)
+        if self.config['units'] > 0:
+            x = tf.keras.layers.Dense(self.config['units'], activation='relu')(x)
+            x = tf.keras.layers.Dropout(self.config['dropout'])(x)
         output = tf.keras.layers.Dense(self.df.iloc[:, 2:].shape[1], activation='softmax')(x)
         model = tf.keras.Model(inputs, output)
 
@@ -242,6 +245,7 @@ def parse_opt():
     parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
     parser.add_argument('--dropout', type=float, default=0.4, help='dropout share in model')
+    parser.add_argument('--units', type=int, default=0, help='OPTIONAL - number of hidden units in last dense layer before output layer. Only applies if >0')
     parser.add_argument('--patience', type=int, default=3, help='patience parameter for model early stopping')
     parser.add_argument('--balance-batches', type=str, default='true', choices=['true', 'false'], help='whether or not to balance classes per mini batch')
     # Predict param
