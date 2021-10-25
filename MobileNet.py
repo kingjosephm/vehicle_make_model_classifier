@@ -9,8 +9,8 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 from time import time
-from PIL import ImageFont
 import visualkeras
+import numpy as np
 
 """
     Credit: 
@@ -75,7 +75,7 @@ class MobileNetClassifier(ClassifierCore):
             temp = df.loc[df[x] == 1]
             tf_df = tf.data.Dataset.from_tensor_slices(
                 (temp['Source Path'], tf.cast(list(temp['Bboxes']), tf.int32), (temp.iloc[:, 2:])))
-            #tf_df = tf_df.shuffle(buffer_size=1000000)
+            tf_df = tf_df.shuffle(buffer_size=len(df)).repeat()
             df_list.append(tf_df)
 
         balanced_train = tf.data.experimental.sample_from_datasets(df_list, weights=[(1 / len(df_list))] * len(df_list))
@@ -181,14 +181,24 @@ class MobileNetClassifier(ClassifierCore):
         checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_directory+'/training_checkpoints', save_weights_only=True,
                                                         save_best_only=True, monitor='val_loss')
 
+        # Must be defined if balancing batches
+        if self.config['balance_batches'] == 'true':
+            train_steps_per_epoch = int(np.ceil((len(self.df) * (1 - (self.config['test_size'] + self.config['validation_size']))) / self.config['batch_size']))
+            val_steps_per_epoch = int(np.ceil((len(self.df) * (1-self.config['test_size']) * self.config['validation_size']) / self.config['batch_size']))
+        else:
+            train_steps_per_epoch = None
+            val_steps_per_epoch = None
+
         # Train model
         start = time()
         if self.config['save_weights'] == 'true':
             hist = model.fit(train, batch_size=self.config['batch_size'], epochs=self.config['epochs'],
-                             callbacks=[early_stopping, checkpoint], validation_data=validation)
+                             steps_per_epoch=train_steps_per_epoch, callbacks=[early_stopping, checkpoint],
+                             validation_data=validation, validation_steps=val_steps_per_epoch)
         else:
             hist = model.fit(train, batch_size=self.config['batch_size'], epochs=self.config['epochs'],
-                             callbacks=[early_stopping], validation_data=validation)
+                             steps_per_epoch=train_steps_per_epoch, callbacks=[early_stopping],
+                             validation_data=validation, validation_steps=val_steps_per_epoch)
         print("\nTotal training time in minutes: {:.2f}\n".format((time()-start)/60))
         return hist, model
 
@@ -227,7 +237,7 @@ def parse_opt():
     parser.add_argument('--batch-size', type=int, default=32, help='batch size')
     parser.add_argument('--logging', type=str, choices=['true', 'false'], default='true', help='turn off/on script logging, e.g. for CLI debugging')
     parser.add_argument('--seed', type=int, default=123, help='seed value for random number generator')
-    parser.add_argument('--min-bbox-area', type=int, default=10000, help='minimum pixel area of bounding box, otherwise image excluded')
+    parser.add_argument('--min-bbox-area', type=int, default=4000, help='minimum pixel area of bounding box, otherwise image excluded')
     parser.add_argument('--sample', type=float, default=1.0, help='share of image-df rows to sample, default 1.0. Used for debugging')
     # Mode
     group = parser.add_mutually_exclusive_group(required=True)
@@ -255,7 +265,7 @@ def parse_opt():
     assert (args.share_grayscale >= 0.0 and args.share_grayscale <= 1.0), "share-greyscale is bounded between 0-1!"
     assert (args.confidence >= 0.0 and args.confidence <= 1.0), "confidence is bounded between 0-1!"
     assert (args.validation_size >= 0.0 and args.validation_size <= 1.0), "validation size is a proportion and bounded between 0-1!"
-    assert (args.img_size == (224, 224)), "image size is only currently supported for 224 pixels wide by 224 pixels high"
+    assert (args.img_size == (224, 224)), "image size is only currently supported for 224 by 224 pixels"
     return args
 
 def main(opt):
@@ -292,8 +302,8 @@ def main(opt):
         hist, model = mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
         # Output figure of model structure to disk
-        font = ImageFont.truetype("arial.ttf", 32)
-        visualkeras.layered_view(model, legend=True, font=font, to_file=os.path.join(log_dir, 'model_structure.png'))
+        visualkeras.layered_view(model, legend=True, to_file=os.path.join(log_dir, 'model_structure.png'))
+        visualkeras.layered_view(model, legend=True, scale_xy=1, scale_z=1, max_z=1000, to_file=os.path.join(log_dir, 'model_structure_scaled.png'))
 
         # Evaluate using test set
         if opt.test_size != 0:
