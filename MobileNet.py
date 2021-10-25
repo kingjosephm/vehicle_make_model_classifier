@@ -142,7 +142,25 @@ class MobileNetClassifier(ClassifierCore):
                                              include_top=False,
                                              weights=f"./scripts/mobilenet_v2_weights_tf_dim_ordering_tf_kernels_{self.config['mobilenetv2_alpha']}_{self.config['img_size'][0]}_no_top.h5")
 
-        mobilenet_layer.trainable = False
+        # Set whole model mobilenet model to trainable or not
+        if self.config['train_base'] == 'true':
+            mobilenet_layer.trainable = True  # Note - keep training=False in mobilenet_layer below, so that this layer runs in inference mode so batchnorm stats don't update
+        else:
+            mobilenet_layer.trainable = False
+
+        # Set last few layers as trainable
+        if self.config['train_blocks'] < 0:
+            if self.config['train_blocks'] == -1:
+                train_blocks = -11
+            elif self.config['train_blocks'] == -2:
+                train_blocks = -20
+            elif self.config['train_blocks'] == -3:
+                train_blocks = -29
+            else:
+                raise ValueError("Please try training entire network")
+
+            for layer in mobilenet_layer.layers[train_blocks:]:
+                layer.trainable = True
 
         # Build model that includes MobileNetv2 layer
         inputs = tf.keras.Input(shape=self.config['img_size'] + (3,))
@@ -234,7 +252,7 @@ def parse_opt():
     parser.add_argument('--data', type=str, default='./data/scraped_images', help='path to root directory where scraped vehicle images stored')
     parser.add_argument('--output', type=str, help='path to output results', required=True)
     parser.add_argument('--img-size', type=tuple, default=(224, 224), help='image size h,w')
-    parser.add_argument('--batch-size', type=int, default=32, help='batch size')
+    parser.add_argument('--batch-size', type=int, default=256, help='batch size')
     parser.add_argument('--logging', type=str, choices=['true', 'false'], default='true', help='turn off/on script logging, e.g. for CLI debugging')
     parser.add_argument('--seed', type=int, default=123, help='seed value for random number generator')
     parser.add_argument('--min-bbox-area', type=int, default=4000, help='minimum pixel area of bounding box, otherwise image excluded')
@@ -254,10 +272,12 @@ def parse_opt():
     parser.add_argument('--learning-rate', type=float, default=0.001, help='Adam optimizer learning rate')
     parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
-    parser.add_argument('--dropout', type=float, default=0.4, help='dropout share in model')
-    parser.add_argument('--units', type=int, default=0, help='OPTIONAL - number of hidden units in last dense layer before output layer. Only applies if >0')
-    parser.add_argument('--patience', type=int, default=3, help='patience parameter for model early stopping')
-    parser.add_argument('--balance-batches', type=str, default='true', choices=['true', 'false'], help='whether or not to balance classes per mini batch')
+    parser.add_argument('--dropout', type=float, default=0.1, help='dropout share in model')
+    parser.add_argument('--units', type=int, default=0, help='number of hidden units in last dense layer before output layer. Only applies if >0')
+    parser.add_argument('--patience', type=int, default=5, help='patience parameter for model early stopping')
+    parser.add_argument('--balance-batches', type=str, default='false', choices=['true', 'false'], help='whether or not to balance classes per mini batch')
+    parser.add_argument('--train-base', type=str, default='false', choices=['true', 'false'], help="whether or not to unfreeze entire pretrained base model")
+    parser.add_argument('--train-blocks', type=int, default=0, help="number of residual blocks at end of MobileNet to train, e.g. -1, -2 for last one or two blocks, respectively")
     # Predict param
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
@@ -266,6 +286,12 @@ def parse_opt():
     assert (args.confidence >= 0.0 and args.confidence <= 1.0), "confidence is bounded between 0-1!"
     assert (args.validation_size >= 0.0 and args.validation_size <= 1.0), "validation size is a proportion and bounded between 0-1!"
     assert (args.img_size == (224, 224)), "image size is only currently supported for 224 by 224 pixels"
+    if args.train_base == 'true':
+        if args.learning_rate > 1e-4:
+            print("Warning - with base model set to trainable small learning rate (e.g. 1e-4) should be used")
+    assert (args.train_blocks <= 0), "train-blocks are negative integers or 0 for None"
+    if (args.train_base == 'true') and (args.train_blocks != 0):
+        raise ValueError('Incompatible arguments! You can either train entire MobileNet model with `train-base` == `true` or e.g. `train-base` == -1 but not both!')
     return args
 
 def main(opt):
