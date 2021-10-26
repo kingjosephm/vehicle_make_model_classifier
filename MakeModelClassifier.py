@@ -4,7 +4,7 @@ import argparse
 import sys
 from datetime import datetime
 import tensorflow as tf
-from tensorflow.keras.applications import mobilenet_v2
+from tensorflow.keras.applications import mobilenet_v2, resnet_v2, xception, inception_v3
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 import json
@@ -134,36 +134,68 @@ class MakeModelClassifier(ClassifierCore):
         :return:
         """
 
-        # Instantiate MobileNetv2 layer
-        mobilenet_layer = mobilenet_v2.MobileNetV2(input_shape=(self.config['img_size'] + (3,)),
-                                         include_top=False,
-                                         alpha=float(self.config['mobilenetv2_alpha']))
+        if self.config['model'] == 'mobilenet':
+            pretrained_layer = mobilenet_v2.MobileNetV2(input_shape=(self.config['img_size'] + (3,)),
+                                             include_top=False,
+                                             alpha=float(self.config['mobilenetv2_alpha']))
 
+            # Set last few layers as trainable
+            if self.config['train_blocks'] < 0:
+                if self.config['train_blocks'] == -1:
+                    train_blocks = -11
+                elif self.config['train_blocks'] == -2:
+                    train_blocks = -20
+                elif self.config['train_blocks'] == -3:
+                    train_blocks = -29
+                else:
+                    raise ValueError("Please try training entire network")
+
+        elif self.config['model'] == 'resnet':
+            pretrained_layer = resnet_v2.ResNet152V2(input_shape=(self.config['img_size'] + (3,)), include_top=False)
+
+            # Set last few layers as trainable - TODO
+            if self.config['train_blocks'] < 0:
+                raise ValueError(f"This feature is currently not available for {self.config['model']}!")
+
+        elif self.config['model'] == 'xception':
+            pretrained_layer = xception.Xception(input_shape=(self.config['img_size'] + (3,)), include_top=False)
+
+            # Set last few layers as trainable - TODO
+            if self.config['train_blocks'] < 0:
+                raise ValueError(f"This feature is currently not available for {self.config['model']}!")
+
+        else:
+            pretrained_layer = inception_v3.InceptionV3(input_shape=(self.config['img_size'] + (3,)), include_top=False)
+
+            # Set last few layers as trainable - TODO
+            if self.config['train_blocks'] < 0:
+                raise ValueError(f"This feature is currently not available for {self.config['model']}!")
+
+
+        if self.config['train_blocks'] < 0:
+            for layer in pretrained_layer.layers[train_blocks:]:
+                layer.trainable = True
 
         # Set whole model mobilenet model to trainable or not
         if self.config['train_base'] == 'true':
-            mobilenet_layer.trainable = True  # Note - keep training=False in mobilenet_layer below, so that this layer runs in inference mode so batchnorm stats don't update
+            pretrained_layer.trainable = True  # Note - keep training=False in mobilenet_layer below, so that this layer runs in inference mode so batchnorm stats don't update
         else:
-            mobilenet_layer.trainable = False
-
-        # Set last few layers as trainable
-        if self.config['train_blocks'] < 0:
-            if self.config['train_blocks'] == -1:
-                train_blocks = -11
-            elif self.config['train_blocks'] == -2:
-                train_blocks = -20
-            elif self.config['train_blocks'] == -3:
-                train_blocks = -29
-            else:
-                raise ValueError("Please try training entire network")
-
-            for layer in mobilenet_layer.layers[train_blocks:]:
-                layer.trainable = True
+            pretrained_layer.trainable = False
 
         # Build model that includes MobileNetv2 layer
         inputs = tf.keras.Input(shape=self.config['img_size'] + (3,))
-        x = mobilenet_v2.preprocess_input(inputs)  # handles image normalization
-        x = mobilenet_layer(x, training=False)
+
+        # handles image normalization & preprocessing
+        if self.config['model'] == 'mobilenet':
+            x = mobilenet_v2.preprocess_input(inputs)
+        elif self.config['model'] == 'resnet':
+            x = resnet_v2.preprocess_input(inputs)
+        elif self.config['model'] == 'xception':
+            x = xception.preprocess_input(inputs)
+        else:  # inception
+            x = inception_v3.preprocess_input(inputs)
+
+        x = pretrained_layer(x, training=False)
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(self.config['dropout'])(x)
         if self.config['units'] > 0:
@@ -266,7 +298,8 @@ def parse_opt():
     parser.add_argument('--save-weights', type=str, choices=['true', 'false'], default='true', help='save model checkpoints and weights')
     parser.add_argument('--share-grayscale', type=float, default=0.5, help='share of training images to read in as greyscale')
     parser.add_argument('--confidence', type=float, default=0.70, help='object confidence level for YOLOv5 bounding box')
-    parser.add_argument('--mobilenetv2-alpha', type=str, default='1.0', choices=['1.4', '1.3', '1.0', '0.75', '0.5', '0.35'], help='width multiplier in the MobileNetV2, options are 1.4, 1.0, 0.75, 0.5, or 0.35')
+    parser.add_argument('--model', type=str, default='mobilenet', choices=['mobilenet', 'resnet', 'xception', 'inception'], help='pretrained model type, options are `mobilenet` (MobileNetV2), `resnet` (ResNet152V2), `xception` (Xception), or `inception` (InceptionV3)')
+    parser.add_argument('--mobilenetv2-alpha', type=str, default='1.0', choices=['1.4', '1.3', '1.0', '0.75', '0.5', '0.35'], help='width multiplier in the MobileNetV2, options are 1.4, 1.3, 1.0, 0.75, 0.5, or 0.35')
     parser.add_argument('--learning-rate', type=float, default=0.001, help='Adam optimizer learning rate')
     parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
     parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
