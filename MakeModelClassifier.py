@@ -335,7 +335,7 @@ def main(opt):
     # Directing output
     os.makedirs(opt.output, exist_ok=True)
     full_path = opt.output + '/' + datetime.now().strftime("%Y-%m-%d-%Hh%M")
-    os.makedirs(full_path, exist_ok=True)  # will overwrite folder if model run within same minute
+    os.makedirs(full_path, exist_ok=False)  # must wait >1 min between running models to differentiate output directory
 
     # Log results
     log_dir = os.path.join(full_path, 'logs')
