@@ -79,6 +79,7 @@ if __name__ == '__main__':
         count += 1
     temp = pd.DataFrame(output, columns=['Bboxes', 'Dims'])
     df = pd.concat([df, temp], axis=1)
+    df['Dims'] = df['Dims'].apply(lambda x: [float(i) for i in x])  # convert to float to ensure CSV parses correctly
 
     df = df.sort_values(by=['Make', 'Model'])
 
