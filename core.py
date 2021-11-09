@@ -1,8 +1,9 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 import pandas as pd
 import tensorflow
 import tensorflow as tf
 import ast
+import numpy as np
 
 tf.keras.backend.clear_session()
 tf.config.optimizer.set_jit(True)
@@ -15,12 +16,13 @@ class ClassifierCore(ABC):
     def __init__(self, config):
         self.config = config
 
-    def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 10000):
+    def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 10000, min_class_img_count: int = 120):
         """
         Reads and processes string path to CSV containing image paths and labels
         :param path: str, path to CSV file
         :param confidence: float, confidence level of object in bounding box of image
         :param min_bbox_area: int, min pixel area of bbox image, otherwise observation excluded
+        :param min_img_count: int, minimum number of images per make-model, else this category is excluded
         :return: pd.DataFrame
         """
         df = pd.read_csv(path, usecols=['Make', 'Model', 'Category', 'Source Path', 'Bboxes'])
@@ -30,6 +32,11 @@ class ClassifierCore(ABC):
         # Restrict to images with bounding boxes meeting minimum confidence level
         conf = df['Bboxes'].apply(lambda x: x[4])
         df = df.loc[conf >= confidence].reset_index(drop=True)
+
+        # Remove select brands
+        df = df.loc[~df.Make.isin(['Ferrari', 'Lamborghini', 'Maserati', 'Rolls-Royce', 'McLaren', 'Bentley',
+                                   'Saab', 'Aston Martin', 'Alfa Romeo', 'Fiat', 'Daewoo', 'Isuzu', 'Genesis',
+                                   'Mayback', 'Lotus', 'Plymouth', 'Oldsmobile'])]
 
         # Bbox image size in pixel area]
         area = df['Bboxes'].apply(lambda x: (x[3] - x[1]) * (x[2] - x[0])).astype(int)  # Format: xyxy
@@ -41,6 +48,11 @@ class ClassifierCore(ABC):
 
         # Concatenate Make and Model as new variable
         df['Make-Model'] = df['Make'] + ' ' + df['Model']
+
+        # Remove make-model combinations below minimum image count
+        counts = df.groupby('Make-Model')['Source Path'].count().reset_index()
+        excluded = counts[counts['Source Path'] < min_class_img_count]['Make-Model'].tolist()
+        df = df.loc[~df['Make-Model'].isin(excluded)]
 
         # Modify `Source Path` to make absolute path to each image file
         df['Source Path'] = df['Source Path'].apply(lambda x: self.config['data'] + '/' + x)
@@ -68,8 +80,13 @@ class ClassifierCore(ABC):
         # Concat together
         df = pd.concat([df[['Source Path', 'Bboxes']], dummies], axis=1)
 
-        # Shuffle data
-        df = df.sample(frac=self.config['sample'], random_state=self.config['seed']).reset_index(drop=True)
+        # Shuffle data or create stratified random sample
+        if self.config['sample'] == 1.0:
+            df = df.sample(frac=self.config['sample'], random_state=self.config['seed']).reset_index(drop=True)
+        else:
+            reverse_onehot = df.iloc[:, 2:].idxmax(axis=1).astype(int).reset_index()  # recover argmax
+            indices = reverse_onehot.groupby(by=0, group_keys=False).apply(lambda x: x.sample(max(int(np.floor(len(x) * self.config['sample'])), 5))).index
+            df = df[df.index.isin(indices)]
 
         return df, label_mapping
 
