@@ -26,7 +26,9 @@ from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix
 class MakeModelClassifier(ClassifierCore):
     def __init__(self, config):
         super().__init__(config)
-        self.df, self.label_mapping = super().read_dataframe(self.config['img_df'], min_class_img_count=self.config['min_class_img_count'])  # TODO - how handle predict mode?
+        self.df, self.label_mapping = super().read_dataframe(self.config['img_df'],
+                                                             min_class_img_count=self.config['min_class_img_count'],
+                                                             pixel_dilation=self.config['pixel_dilation'])  # TODO - how handle predict mode?
 
     def process_image_train(self, image_file, bboxes: tf.Tensor, labels: tuple):
         """
@@ -320,6 +322,7 @@ def parse_opt():
     parser.add_argument('--train-base', type=str, default='false', choices=['true', 'false'], help="whether or not to unfreeze entire pretrained base model")
     parser.add_argument('--train-blocks', type=int, default=0, help="number of residual blocks at end of MobileNet to train, e.g. -1, -2 for last one or two blocks, respectively")
     parser.add_argument('--min-class-img-count', type=int, default=0, help='minimum number of images per make-model, else discard this class')
+    parser.add_argument('--pixel-dilation', type=int, default=20, help='number of pixels to add around YOLOv5 bounding box coordinates')
     # Predict param
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
@@ -329,6 +332,7 @@ def parse_opt():
     assert (args.test_size > 0.0 and args.test_size <= 0.15), "test size is a proportion and bounded between 0-0.15!"
     assert (args.validation_size > 0.0 and args.validation_size <= 0.3), "validation size is a proportion and bounded between 0-0.3!"
     assert (args.img_size == (224, 224)), "image size is only currently supported for 224 by 224 pixels"
+    assert (args.pixel_dilation >= 0), 'pixel dilation must be >= 0!'
     if args.train_base == 'true':
         if args.learning_rate > 1e-4:
             print("Warning - with base model set to trainable small learning rate (e.g. 1e-4) should be used")

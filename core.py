@@ -16,17 +16,20 @@ class ClassifierCore(ABC):
     def __init__(self, config):
         self.config = config
 
-    def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 10000, min_class_img_count: int = 120):
+    def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 10000,
+                       min_class_img_count: int = 120, pixel_dilation: int = 20):
         """
         Reads and processes string path to CSV containing image paths and labels
         :param path: str, path to CSV file
         :param confidence: float, confidence level of object in bounding box of image
         :param min_bbox_area: int, min pixel area of bbox image, otherwise observation excluded
         :param min_img_count: int, minimum number of images per make-model, else this category is excluded
+        :param pixel_dilation: int, number of extra pixels to add to YOLOv5 bounding box coordinates, producing less cropped image
         :return: pd.DataFrame
         """
-        df = pd.read_csv(path, usecols=['Make', 'Model', 'Category', 'Source Path', 'Bboxes'])
+        df = pd.read_csv(path, usecols=['Make', 'Model', 'Category', 'Source Path', 'Bboxes', 'Dims'])
         df['Bboxes'] = df['Bboxes'].apply(lambda x: list(ast.literal_eval(x)))
+        df['Dims'] = df['Dims'].apply(lambda x: list(ast.literal_eval(x)))
         df = df.loc[df.Bboxes.str.len() != 0].reset_index(drop=True)  # restrict to rows with bounding boxes
 
         # Restrict to images with bounding boxes meeting minimum confidence level
@@ -41,6 +44,20 @@ class ClassifierCore(ABC):
         # Bbox image size in pixel area]
         area = df['Bboxes'].apply(lambda x: (x[3] - x[1]) * (x[2] - x[0])).astype(int)  # Format: xyxy
         df = df.loc[area >= min_bbox_area].reset_index(drop=True)
+
+        # Add extra area to bounding boxes
+        df['Bboxes'] = df['Bboxes'].apply(lambda x: [max(x[0] - pixel_dilation, 0), max(x[1] - pixel_dilation, 0),
+                                                         x[2] + pixel_dilation, x[3] + pixel_dilation])
+
+        def enforce_boundaries(x):
+            """
+            Enforces that added pixel dilation area doesn't exceed total image size
+            :param x: pd.Series
+            :return: pd.Series
+            """
+            return [x[4][0], x[4][1], min(x[5][1], x[4][2]), min(x[5][0], x[4][3])]
+
+        df['Bboxes'] = df.apply(enforce_boundaries, axis=1)
 
         # Modify bounding boxes, originally xyxy
         df['Bboxes'] = df['Bboxes'].apply(lambda x: [x[1], x[0], x[3] - x[1], x[2] - x[
