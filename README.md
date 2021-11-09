@@ -41,12 +41,12 @@ To run the classifier using an Inception layer, for example, in a detached Docke
     --mount source=MERGEN_Make_Model_config,target=/config \
     --mount source=MERGEN_Make_Model_output,target=/output \
     --gpus device=GPU-0c5076b3-fe4a-0cd8-e4b7-71c2037933c0 \
-    king0759/tf2_gpu_jupyter_mpl:v2 python3 ./scripts/MakeModelClassifier.py \
+    king0759/tf2_gpu_jupyter_mpl:v3 python3 ./scripts/MakeModelClassifier.py \
     --train --data=/data --img-df=/config/MakeModelDirectory_Bboxes.csv \
     --epochs=40 --output=/output --logging='true' --save-weights='false' \
     --dropout=0.1 --patience=5 --batch-size=256 --model='inception'
 
-The Docker image `king0759/tf2_gpu_jupyter_mpl:v2` contains all the dependent modules. Importantly, you will need to update the mount source above to the scripts directory on your working directory, if you make changes to these scripts.You should also select one or more GPU to designate for your container:
+The Docker image `king0759/tf2_gpu_jupyter_mpl:3` contains all the dependent modules. Importantly, you will need to update the mount source above to the scripts directory on your working directory, if you make changes to these scripts.You should also select one or more GPU to designate for your container:
 
 - GPU-8121da2f-b1c3-d231-a9ab-7d6f598ba2dd
 - GPU-7a7c102c-5f71-a0fd-2ac0-f45a63c82dc5
