@@ -28,6 +28,9 @@ def detect_cars(path, model, min_confidence=0.5):
     except ValueError:  # Image is blank
         return []
 
+    dims = np.array(results.s)
+    dims = (dims[2], dims[3], dims[1])
+
     coordinates = results.xyxy[0].numpy()
 
     if len(coordinates) == 0:  # no objects found
@@ -52,30 +55,33 @@ def detect_cars(path, model, min_confidence=0.5):
     area = (arr[:, 3] - arr[:, 1]) * (arr[:, 2] - arr[:, 0])  # Format: xyxy
     coordinates = coordinates[np.argmax(area)]
 
-    return coordinates[0:5].tolist()
+    return coordinates[0:5].tolist(), dims
 
 if __name__ == '__main__':
 
     # Read in model
     model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
-    path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories'
+    dir_path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories'
+    data_path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
 
-    df = pd.read_csv(os.path.join(path, 'MakeModelDirectory.csv'))
+    df = pd.read_csv(os.path.join(dir_path, 'MakeModelDirectory.csv'))
 
     start = time()
 
     output = []
     count = 0
     for i in df['Source Path']:
-        output.append(detect_cars(i, model, min_confidence=0.5))
+        coord, dims = detect_cars(os.path.join(data_path, i), model, min_confidence=0.5)
+        output.append([coord, dims])
         if (count % 1000 == 0) and (count > 0):
             print(f"Cumulative time after {count} images: {time() - start:.2f} sec\n")
         count += 1
-    df['Bboxes'] = pd.Series(output)
+    temp = pd.DataFrame(output, columns=['Bboxes', 'Dims'])
+    df = pd.concat([df, temp], axis=1)
 
     df = df.sort_values(by=['Make', 'Model'])
 
-    df.to_csv(os.path.join(path, 'MakeModelDirectory_Bboxes.csv'), index=False)
+    df.to_csv(os.path.join(dir_path, 'MakeModelDirectory_Bboxes.csv'), index=False)
 
     caffeine.off()
