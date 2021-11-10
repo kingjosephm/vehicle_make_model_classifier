@@ -226,8 +226,16 @@ class MakeModelClassifier(ClassifierCore):
         model = self.build_model()
 
         loss_object = tf.keras.losses.CategoricalCrossentropy()
-        optimizer = tf.keras.optimizers.Adam(learning_rate=self.config['learning_rate'],
-                                             beta_1=self.config['beta_1'], beta_2=self.config['beta_2'])
+
+
+        if self.config['optimizer'] == 'adam':
+            optimizer = tf.keras.optimizers.Adam(learning_rate=self.config['learning_rate'])
+        elif self.config['optimizer'] == 'adagrad':
+            optimizer = tf.keras.optimizers.Adagrad(learning_rate=self.config['learning_rate'])
+        elif self.config['optimizer'] == 'adamax':
+            optimizer = tf.keras.optimizers.Adamax(learning_rate=self.config['learning_rate'])
+        else:
+            optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.config['learning_rate'])
 
         model.compile(loss=loss_object, optimizer=optimizer, metrics=[tf.keras.metrics.CategoricalAccuracy()])
 
@@ -313,9 +321,8 @@ def parse_opt():
     parser.add_argument('--confidence', type=float, default=0.50, help='object confidence level for YOLOv5 bounding box')
     parser.add_argument('--model', type=str, default='mobilenet', choices=['mobilenet', 'resnet', 'xception', 'inception'], help='pretrained model type, options are `mobilenet` (MobileNetV2), `resnet` (ResNet152V2), `xception` (Xception), or `inception` (InceptionV3)')
     parser.add_argument('--mobilenetv2-alpha', type=str, default='1.0', choices=['1.4', '1.3', '1.0', '0.75', '0.5', '0.35'], help='width multiplier in the MobileNetV2, options are 1.4, 1.3, 1.0, 0.75, 0.5, or 0.35')
-    parser.add_argument('--learning-rate', type=float, default=0.001, help='Adam optimizer learning rate')
-    parser.add_argument('--beta-1', type=float, default=0.9, help='exponential decay for first moment of Adam optimizer')
-    parser.add_argument('--beta-2', type=float, default=0.999, help='exponential decay for second moment of Adam optimizer')
+    parser.add_argument('--learning-rate', type=float, default=0.001, help='Optimizer learning rate')
+    parser.add_argument('--optimizer', type=str, default='adam', choices=['adam', 'adagrad', 'adamax', 'rmsprop'], help='Optimizer type, either `adam`, `adagrad`, `adamax` or `rmsprop`')
     parser.add_argument('--dropout', type=float, default=0.1, help='dropout share in model')
     parser.add_argument('--units', type=int, default=0, help='number of hidden units in last dense layer before output layer. Only applies if >0')
     parser.add_argument('--patience', type=int, default=5, help='patience parameter for model early stopping')
