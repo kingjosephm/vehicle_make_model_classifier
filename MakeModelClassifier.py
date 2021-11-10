@@ -309,7 +309,7 @@ def parse_opt():
     parser.add_argument('--test-size', type=float, default=0.05, help='holdout test set size as share of number of training images')
     parser.add_argument('--save-weights', type=str, choices=['true', 'false'], default='true', help='save model checkpoints and weights')
     parser.add_argument('--share-grayscale', type=float, default=0.5, help='share of training images to read in as greyscale')
-    parser.add_argument('--confidence', type=float, default=0.70, help='object confidence level for YOLOv5 bounding box')
+    parser.add_argument('--confidence', type=float, default=0.50, help='object confidence level for YOLOv5 bounding box')
     parser.add_argument('--model', type=str, default='mobilenet', choices=['mobilenet', 'resnet', 'xception', 'inception'], help='pretrained model type, options are `mobilenet` (MobileNetV2), `resnet` (ResNet152V2), `xception` (Xception), or `inception` (InceptionV3)')
     parser.add_argument('--mobilenetv2-alpha', type=str, default='1.0', choices=['1.4', '1.3', '1.0', '0.75', '0.5', '0.35'], help='width multiplier in the MobileNetV2, options are 1.4, 1.3, 1.0, 0.75, 0.5, or 0.35')
     parser.add_argument('--learning-rate', type=float, default=0.001, help='Adam optimizer learning rate')
