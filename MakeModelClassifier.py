@@ -322,7 +322,7 @@ def parse_opt():
     parser.add_argument('--train-base', type=str, default='false', choices=['true', 'false'], help="whether or not to unfreeze entire pretrained base model")
     parser.add_argument('--train-blocks', type=int, default=0, help="number of residual blocks at end of MobileNet to train, e.g. -1, -2 for last one or two blocks, respectively")
     parser.add_argument('--min-class-img-count', type=int, default=0, help='minimum number of images per make-model, else discard this class')
-    parser.add_argument('--pixel-dilation', type=int, default=20, help='number of pixels to add around YOLOv5 bounding box coordinates')
+    parser.add_argument('--pixel-dilation', type=int, default=5, help='number of pixels to add around YOLOv5 bounding box coordinates')
     # Predict param
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
