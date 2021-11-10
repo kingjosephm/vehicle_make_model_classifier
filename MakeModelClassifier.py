@@ -149,6 +149,7 @@ class MakeModelClassifier(ClassifierCore):
         if self.config['model'] == 'mobilenet':
             pretrained_layer = mobilenet_v2.MobileNetV2(input_shape=(self.config['img_size'] + (3,)),
                                              include_top=False,
+                                             weights='imagenet',
                                              alpha=float(self.config['mobilenetv2_alpha']))
 
             # Set last few layers as trainable
@@ -183,16 +184,16 @@ class MakeModelClassifier(ClassifierCore):
             if self.config['train_blocks'] < 0:
                 raise ValueError(f"This feature is currently not available for {self.config['model']}!")
 
+        # Set whole model mobilenet model to trainable or not
+        if self.config['train_base'] == 'true':
+            pretrained_layer.trainable = True
+        else:
+            pretrained_layer.trainable = False  # pretrained layer all set to not trainable
 
+        # Optionally - unfreeze last few blocks of layers in pretrained model
         if self.config['train_blocks'] < 0:
             for layer in pretrained_layer.layers[train_blocks:]:
                 layer.trainable = True
-
-        # Set whole model mobilenet model to trainable or not
-        if self.config['train_base'] == 'true':
-            pretrained_layer.trainable = True  # Note - keep training=False in mobilenet_layer below, so that this layer runs in inference mode so batchnorm stats don't update
-        else:
-            pretrained_layer.trainable = False
 
         # Build model that includes MobileNetv2 layer
         inputs = tf.keras.Input(shape=self.config['img_size'] + (3,))
@@ -207,7 +208,7 @@ class MakeModelClassifier(ClassifierCore):
         else:  # inception
             x = inception_v3.preprocess_input(inputs)
 
-        x = pretrained_layer(x, training=False)
+        x = pretrained_layer(x, training=False)  # training=False because model contains BatchNormalization layers, which shouldn't be updated
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(self.config['dropout'])(x)
         if self.config['units'] > 0:
