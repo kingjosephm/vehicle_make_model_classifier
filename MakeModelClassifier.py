@@ -149,8 +149,7 @@ class MakeModelClassifier(ClassifierCore):
         if self.config['model'] == 'mobilenet':
             pretrained_layer = mobilenet_v2.MobileNetV2(input_shape=(self.config['img_size'] + (3,)),
                                              include_top=False,
-                                             weights='imagenet',
-                                             alpha=float(self.config['mobilenetv2_alpha']))
+                                             weights='imagenet')
 
             # Set last few layers as trainable
             if self.config['train_blocks'] < 0:
@@ -211,8 +210,11 @@ class MakeModelClassifier(ClassifierCore):
         x = pretrained_layer(x, training=False)  # training=False because model contains BatchNormalization layers, which shouldn't be updated
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(self.config['dropout'])(x)
-        if self.config['units'] > 0:
-            x = tf.keras.layers.Dense(self.config['units'], activation='relu')(x)
+        if self.config['units2'] > 0:
+            x = tf.keras.layers.Dense(self.config['units2'], activation='relu')(x)
+            x = tf.keras.layers.Dropout(self.config['dropout'])(x)
+        if self.config['units1'] > 0:
+            x = tf.keras.layers.Dense(self.config['units1'], activation='relu')(x)
             x = tf.keras.layers.Dropout(self.config['dropout'])(x)
         output = tf.keras.layers.Dense(self.df.iloc[:, 2:].shape[1], activation='softmax')(x)
         model = tf.keras.Model(inputs, output)
@@ -320,11 +322,11 @@ def parse_opt():
     parser.add_argument('--share-grayscale', type=float, default=0.5, help='share of training images to read in as greyscale')
     parser.add_argument('--confidence', type=float, default=0.50, help='object confidence level for YOLOv5 bounding box')
     parser.add_argument('--model', type=str, default='mobilenet', choices=['mobilenet', 'resnet', 'xception', 'inception'], help='pretrained model type, options are `mobilenet` (MobileNetV2), `resnet` (ResNet50V2), `xception` (Xception), or `inception` (InceptionV3)')
-    parser.add_argument('--mobilenetv2-alpha', type=str, default='1.0', choices=['1.4', '1.3', '1.0', '0.75', '0.5', '0.35'], help='width multiplier in the MobileNetV2, options are 1.4, 1.3, 1.0, 0.75, 0.5, or 0.35')
     parser.add_argument('--learning-rate', type=float, default=0.001, help='Optimizer learning rate')
     parser.add_argument('--optimizer', type=str, default='adam', choices=['adam', 'adagrad', 'adamax', 'rmsprop'], help='Optimizer type, either `adam`, `adagrad`, `adamax` or `rmsprop`')
     parser.add_argument('--dropout', type=float, default=0.1, help='dropout share in model')
-    parser.add_argument('--units', type=int, default=0, help='number of hidden units in last dense layer before output layer. Only applies if >0')
+    parser.add_argument('--units2', type=int, default=0, help='number of hidden units in second to last last dense layer before output layer. Only applies if >0. If >0 units1 must also be >0')
+    parser.add_argument('--units1', type=int, default=0, help='number of hidden units in last last dense layer before output layer. Only applies if >0')
     parser.add_argument('--patience', type=int, default=5, help='patience parameter for model early stopping')
     parser.add_argument('--balance-batches', type=str, default='false', choices=['true', 'false'], help='whether or not to balance classes per mini batch')
     parser.add_argument('--train-base', type=str, default='false', choices=['true', 'false'], help="whether or not to unfreeze entire pretrained base model")
@@ -335,12 +337,15 @@ def parse_opt():
     parser.add_argument('--weights', type=str, help='path to pretrained model weights for prediction',
                         required='--predict' in sys.argv)
     args = parser.parse_args()
+
     assert (args.share_grayscale >= 0.0 and args.share_grayscale <= 1.0), "share-greyscale is bounded between 0-1!"
-    assert (args.confidence > 0.0 and args.confidence <= 1.0), "confidence is bounded between 0-1!"
+    assert (args.confidence >= 0.5 and args.confidence <= 1.0), "confidence is bounded between 0.5-1!"  # YOLOv5 bounding boxes only kept if >=0.5
     assert (args.test_size > 0.0 and args.test_size <= 0.15), "test size is a proportion and bounded between 0-0.15!"
     assert (args.validation_size > 0.0 and args.validation_size <= 0.3), "validation size is a proportion and bounded between 0-0.3!"
     assert (args.img_size == (224, 224)), "image size is only currently supported for 224 by 224 pixels"
     assert (args.pixel_dilation >= 0), 'pixel dilation must be >= 0!'
+    if args.units2 > 0:
+        assert (args.units1 > 0), "units1 must be >0 if units2 is >0!"
     if args.train_base == 'true':
         if args.learning_rate > 1e-4:
             print("Warning - with base model set to trainable small learning rate (e.g. 1e-4) should be used")
