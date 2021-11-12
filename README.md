@@ -2,15 +2,54 @@
 *TODO*
 
 # Training Data
-### Database of U.S. vehicle makes and models
+### Dataset construction
 To create a representative sample of vehicle make and model images for the U.S. passenger vehicle market we rely on the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles manufactured in the US between the years 1992 and 2022. A local copy of this database are stored locally at `./create_training_images/make_model_database.csv` along with the script to generate this extract at `./create_training_images/get_make_model_db.py`. At the time the data were queried, this database contained information on vehicles up through and including 2022 models, though 2022 models are only available for some manufacturers. The database contained information on 59 distinct vehicle manufacturers and 1,032 detailed make-model combinations over the period. 
 
-We drop 4 small vehicle manufacturers (e.g. Fisker, Polestar, Panoz, Rivian), reducing the overall number of distinct vehicle manufacturers in the data to 55. To reduce the number of vehicle make-model combinations, related detailed vehicle models are combined together (e.g. Ford F-150 Super Cab and Ford F350 Super Duty Crew Cab are combined into a single Ford F-Series category) using the script at `./create_training_images/restrict_population_make_models.py`. This reduced the number of unique make-model combinations over the period to 656. The restricted vehicle database is stored at `./create_training_images/make_model_database_mod.csv`. A full list of vehicle makes, models, and years available is below. *TODO*
+We drop 4 small vehicle manufacturers (e.g. Fisker, Polestar, Panoz, Rivian), 8 exotic car manufacturers (e.g. Ferrari, Lamborghini, Maserati, Rolls-Royce, McLaren, Bentley, Aston Martin, Lotus), and 7 brands with sparse information in the dataset (e.g. Alfa Romeo, Daewoo, Isuzu, Genesis, Mayback, Plymouth, Oldsmobile), reducing the number of distinct vehicle manufacturers in the data to 40. 
 
-### Image dataset creation
-Having defined the population of vehicles of interest, we scrape Google Images to download our training dataset. To capture sufficient variation *within* each vehicle make-model combination over time we scrape images using the detailed vehicle model descriptor, combined with the vehicle category (e.g. coupe, sedan, hatchback, SUV, comvertible, wagon, van, pickup), for every year available. In told, this produced 8,779 unique make-(detailed-)model-category-year combinations.
+To reduce the number of vehicle make-model combinations, related detailed vehicle models are combined together (e.g. Ford F-150 Super Cab and Ford F350 Super Duty Crew Cab are combined into a single Ford F-Series category) using the script at `./create_training_images/restrict_population_make_models.py`. This reduced the number of unique make-model combinations over the period to 574. The restricted vehicle database is stored at `./create_training_images/make_model_database_mod.csv` with a corresponding analysis of this database in `./create_training_images/back4app_database_analysis.ipynb`. A full list of these 574 make-model classes can be found below.
+
+Having defined the population of vehicles of interest, we scrape Google Images to download images that will be used as our training dataset. To capture sufficient variation *within* each vehicle make-model combination over time we scrape images using the detailed vehicle model descriptor, combined with the vehicle category (e.g. coupe, sedan, hatchback, SUV, comvertible, wagon, van, pickup), for every year available. In told, this produced 8,274 unique make-(detailed-)model-category-year combinations.
  
 For every make-(detailed-)model-category-year combination, we scrape 100 images, which typically results in 85-90 savable PNG or JPG images. We store these data in separate directories on disk based on make-(aggregated-)model-year. In each directory, approximately 95% of saved images are exterior vehicle photographs with the vast majority corresponding to the correct vehicle make, model and year. 
+
+## Descriptives
+
+A full analysis of the scraped image dataset can be found under `./create_training_images/scraped_image_analysis.ipynb`. 690,014 total images were scraped for all 574 make-model classes over the period. Of these, 531,599 (77.04%) images were identified as having vehicle objects in them, according to YOLOv5. Specifically, we restict to abjects that this algorithm labels as a car, truck, or bus and with a confidence of >= 0.5. If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 5th percentile of pixel area, which reduced the total image count to 504,979 (73.18% of original images). The empirical cumulative distribution function (ECDF) of bound box area of the scraped images can be seen below.
+
+<br />
+
+![ECDF_Bbox](./create_training_images/ecdf_bounding_box_area.png)
+
+
+### Images per Class
+The table below displays key moments in the number of images per class:
+
+| Statistic | Value |
+| --------- | ----- |
+| Classes   | 574   |
+| Mean      | 889.75 |
+| std       | 980.07 |
+| min       | 56.00  |
+| 5%        | 109.00 |
+| 10%       | 149.00 |
+| 25%       | 287.75 |
+| 50%       | 557.00 |
+| 75%       | 1117.75 |
+| 90%       | 1908.40 |
+| 95%       | 7821.00 |
+| max       | 7821.00 |
+
+<br />
+
+![ECDF_img_count](./create_training_images/ecdf_img_count.png)
+
+<br />
+
+<br />
+
+![test](./create_training_images/final_img_count_class.png)
+
 
 # Pipeline
 We develop code locally on our own laptop and upload updated scripts to the GPU cluster to execute code. At present, it's not possible to develop code on the GPU cluster itself. To upload the scripts that run the make-model classifier, `MakeModelClassifier.py` and `core.py`, to the cluster type:
