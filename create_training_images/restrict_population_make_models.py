@@ -11,16 +11,19 @@ if __name__ == '__main__':
         fixes = json.load(f)
 
     # Restrict to brands of interest
-    keep_makes = ['Acura', 'Alfa Romeo', 'Aston Martin', 'Audi', 'BMW', 'Bentley',
-       'Buick', 'Cadillac', 'Chevrolet', 'Chrysler', 'Daewoo', 'Dodge',
-       'Fiat', 'Ferrari', 'Ford', 'GMC', 'Genesis', 'HUMMER',
-       'Honda', 'Hyundai', 'INFINITI', 'Isuzu', 'Jaguar', 'Jeep', 'Kia',
-       'Lamborghini', 'Land Rover', 'Lexus', 'Lincoln', 'Lotus', 'Mazda',
-       'MINI', 'Maserati', 'Maybach', 'McLaren', 'Mercedes-Benz',
-       'Mercury', 'Mitsubishi', 'Nissan', 'Oldsmobile',
-       'Plymouth', 'Pontiac', 'Porsche', 'RAM',
-       'Rolls-Royce', 'Saab', 'Saturn', 'Scion', 'Subaru', 'Suzuki',
-       'Tesla', 'Toyota', 'Volkswagen', 'Volvo', 'smart']  # Excludes Fisker, Polestar, Panoz, Rivian
+    keep_makes = ['Acura', 'Audi', 'BMW',
+       'Buick', 'Cadillac', 'Chevrolet', 'Chrysler', 'Dodge',
+       'Fiat', 'Ford', 'GMC', 'HUMMER',
+       'Honda', 'Hyundai', 'INFINITI', 'Jaguar', 'Jeep', 'Kia',
+       'Land Rover', 'Lexus', 'Lincoln', 'Mazda',
+       'MINI', 'Mercedes-Benz',
+       'Mercury', 'Mitsubishi', 'Nissan',
+       'Pontiac', 'Porsche', 'RAM',
+       'Saab', 'Saturn', 'Scion', 'Subaru', 'Suzuki',
+       'Tesla', 'Toyota', 'Volkswagen', 'Volvo', 'smart']
+    # Excludes Fisker, Polestar, Panoz, Rivian,
+    # Alfa Romeo, Aston Martin, Bentley, Daewoo, Ferrari, Genesis, Isuzu, Lamborghini, Lotus, Maserati
+    # Maybach, McLaren, Oldsmobile, Plymouth, Rolls-Royce
 
     df = df.loc[df.Make.isin(keep_makes)].reset_index(drop=True)
 
@@ -45,6 +48,11 @@ if __name__ == '__main__':
     for key, val in fixes.items():
         df['Model'] = df['Model'].str.replace(rf'\b{key}\b', val, regex=True)
         df['Model'] = df['Model'].apply(lambda x: ' '.join(x.split())) # remove whitespace, if above created any
+
+    # Remove select brands, see README.md
+    df = df.loc[~df.Make.isin(['Ferrari', 'Lamborghini', 'Maserati', 'Rolls-Royce', 'McLaren', 'Bentley',
+                               'Aston Martin', 'Alfa Romeo', 'Daewoo', 'Isuzu', 'Genesis',
+                               'Mayback', 'Lotus', 'Plymouth', 'Oldsmobile'])]
 
 
     # Acura

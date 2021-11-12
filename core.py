@@ -16,7 +16,7 @@ class ClassifierCore(ABC):
     def __init__(self, config):
         self.config = config
 
-    def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 10000,
+    def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 3731,
                        min_class_img_count: int = 120, pixel_dilation: int = 20):
         """
         Reads and processes string path to CSV containing image paths and labels
@@ -35,11 +35,6 @@ class ClassifierCore(ABC):
         # Restrict to images with bounding boxes meeting minimum confidence level
         conf = df['Bboxes'].apply(lambda x: x[4])
         df = df.loc[conf >= confidence].reset_index(drop=True)
-
-        # Remove select brands
-        df = df.loc[~df.Make.isin(['Ferrari', 'Lamborghini', 'Maserati', 'Rolls-Royce', 'McLaren', 'Bentley',
-                                   'Saab', 'Aston Martin', 'Alfa Romeo', 'Fiat', 'Daewoo', 'Isuzu', 'Genesis',
-                                   'Mayback', 'Lotus', 'Plymouth', 'Oldsmobile'])]
 
         # Bbox image size in pixel area]
         area = df['Bboxes'].apply(lambda x: (x[3] - x[1]) * (x[2] - x[0])).astype(int)  # Format: xyxy
