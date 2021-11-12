@@ -163,7 +163,12 @@ class MakeModelClassifier(ClassifierCore):
                     raise ValueError("Please try training entire network")
 
         elif self.config['model'] == 'resnet':
-            pretrained_layer = resnet_v2.ResNet50V2(input_shape=(self.config['img_size'] + (3,)), include_top=False)
+            if self.config['resnet_size'] == '50':
+                pretrained_layer = resnet_v2.ResNet50V2(input_shape=(self.config['img_size'] + (3,)), include_top=False)
+            elif self.config['resnet_size'] == '101':
+                pretrained_layer = resnet_v2.ResNet101V2(input_shape=(self.config['img_size'] + (3,)), include_top=False)
+            else:
+                pretrained_layer = resnet_v2.ResNet152V2(input_shape=(self.config['img_size'] + (3,)), include_top=False)
 
             # Set last few layers as trainable - TODO
             if self.config['train_blocks'] < 0:
@@ -321,8 +326,9 @@ def parse_opt():
     parser.add_argument('--save-weights', type=str, choices=['true', 'false'], default='true', help='save model checkpoints and weights')
     parser.add_argument('--share-grayscale', type=float, default=0.5, help='share of training images to read in as greyscale')
     parser.add_argument('--confidence', type=float, default=0.50, help='object confidence level for YOLOv5 bounding box')
-    parser.add_argument('--model', type=str, default='mobilenet', choices=['mobilenet', 'resnet', 'xception', 'inception'], help='pretrained model type, options are `mobilenet` (MobileNetV2), `resnet` (ResNet50V2), `xception` (Xception), or `inception` (InceptionV3)')
-    parser.add_argument('--learning-rate', type=float, default=0.001, help='Optimizer learning rate')
+    parser.add_argument('--model', type=str, default='mobilenet', choices=['mobilenet', 'resnet', 'xception', 'inception'], help='pretrained model type, options are `mobilenet` (MobileNetV2), `resnet` (see `resnet-size` for model specifics), `xception` (Xception), or `inception` (InceptionV3)')
+    parser.add_argument('--resnet-size', type=str, default='50', choices=['50', '101', '152'], help='resnet model size, if selected')
+    parser.add_argument('--learning-rate', type=float, default=0.0001, help='Optimizer learning rate')
     parser.add_argument('--optimizer', type=str, default='adam', choices=['adam', 'adagrad', 'adamax', 'rmsprop'], help='Optimizer type, either `adam`, `adagrad`, `adamax` or `rmsprop`')
     parser.add_argument('--dropout', type=float, default=0.1, help='dropout share in model')
     parser.add_argument('--units2', type=int, default=0, help='number of hidden units in second to last last dense layer before output layer. Only applies if >0. If >0 units1 must also be >0')
