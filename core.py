@@ -97,10 +97,11 @@ class ClassifierCore(ABC):
         # Concat together
         df = pd.concat([df[['Source Path', 'Bboxes']], dummies], axis=1)
 
-        # Shuffle data or create stratified random sample
-        if self.config['sample'] == 1.0:
-            df = df.sample(frac=self.config['sample'], random_state=self.config['seed']).reset_index(drop=True)
-        else:
+        # Shuffle data
+        df = df.sample(frac=self.config['sample'], random_state=self.config['seed']).reset_index(drop=True)
+
+        # Create stratified random sample
+        if self.config['sample'] < 1.0:
             reverse_onehot = df.iloc[:, 2:].idxmax(axis=1).astype(int).reset_index()  # recover argmax
             indices = reverse_onehot.groupby(by=0, group_keys=False).apply(lambda x: x.sample(max(int(np.floor(len(x) * self.config['sample'])), 5))).index
             df = df[df.index.isin(indices)]

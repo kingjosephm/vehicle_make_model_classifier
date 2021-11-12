@@ -194,7 +194,7 @@ class MakeModelClassifier(ClassifierCore):
             for layer in pretrained_layer.layers[train_blocks:]:
                 layer.trainable = True
 
-        # Build model that includes MobileNetv2 layer
+        # Build model that includes pretrained layer
         inputs = tf.keras.Input(shape=self.config['img_size'] + (3,))
 
         # handles image normalization & preprocessing
@@ -439,49 +439,38 @@ def main(opt):
         lst = []
         index = pred_df.columns.tolist()  # columns become indices below
         for i in range(len(pred_df)):
-            top_five = np.argsort(pred_df.iloc[i].values)[-5:]
-            names = list(reversed([index[i] for i in top_five]))
+            argmax_vals = np.argsort(pred_df.iloc[i].values)
+            names = list(reversed([index[i] for i in argmax_vals]))
             lst.append(names)
-        pred_classes = pd.DataFrame(lst, columns=['Argmax(0)', 'Argmax(1)', 'Argmax(2)', 'Argmax(3)', 'Argmax(4)'])
+        pred_classes = pd.DataFrame(lst, columns=['Argmax(' + str(i) + ')' for i in range(len(lst[0]))])
+        pd.concat([pd.DataFrame(true, columns=['true_label']), pred_classes], axis=1).to_csv(os.path.join(log_dir, 'predicted_classes.csv'), index=False)
 
-        classes = pd.concat([true, pred_classes], axis=1)
+        accuracy = pred_classes.apply(lambda x: true == x)
+        accuracy = accuracy.mean().cumsum().reset_index().rename(columns={0: 'Accuracy'})
 
-        one = np.where(classes['true_label'] == classes['Argmax(0)'], 1, 0)
-        two = np.where((classes['true_label'] == classes['Argmax(0)']) |
-                       (classes['true_label'] == classes['Argmax(1)']), 1, 0)
-        three = np.where((classes['true_label'] == classes['Argmax(0)']) |
-                         (classes['true_label'] == classes['Argmax(1)']) |
-                         (classes['true_label'] == classes['Argmax(2)']), 1, 0)
-        four = np.where((classes['true_label'] == classes['Argmax(0)']) |
-                        (classes['true_label'] == classes['Argmax(1)']) |
-                        (classes['true_label'] == classes['Argmax(2)']) |
-                        (classes['true_label'] == classes['Argmax(3)']), 1, 0)
-        five = np.where((classes['true_label'] == classes['Argmax(0)']) |
-                        (classes['true_label'] == classes['Argmax(1)']) |
-                        (classes['true_label'] == classes['Argmax(2)']) |
-                        (classes['true_label'] == classes['Argmax(3)']) |
-                        (classes['true_label'] == classes['Argmax(4)']), 1, 0)
-
-        accuracy = pd.DataFrame()
-        accuracy = pd.concat([accuracy, pd.DataFrame(one.mean(), columns=['Accuracy'], index=['Argmax(0)'])], axis=0)
-        accuracy = pd.concat([accuracy, pd.DataFrame(two.mean(), columns=['Accuracy'], index=['Argmax(0:1)'])], axis=0)
-        accuracy = pd.concat([accuracy, pd.DataFrame(three.mean(), columns=['Accuracy'], index=['Argmax(0:2)'])],
-                             axis=0)
-        accuracy = pd.concat([accuracy, pd.DataFrame(four.mean(), columns=['Accuracy'], index=['Argmax(0:3)'])], axis=0)
-        accuracy = pd.concat([accuracy, pd.DataFrame(five.mean(), columns=['Accuracy'], index=['Argmax(0:4)'])], axis=0)
-        accuracy = accuracy.reset_index()
-
+        # Cumulative Matching Characteristic Curve: Top 5
         figure(figsize=(10, 8))
-        g = sns.barplot(data=accuracy, x='index', y='Accuracy', palette='Set2')
-        for index, row in accuracy.iterrows():  # print accuracy values atop each bar
+        g = sns.barplot(data=accuracy.iloc[:5], x='index', y='Accuracy', palette='Set2')
+        for index, row in accuracy.iloc[:5].iterrows():  # print accuracy values atop each bar
             g.text(row.name, row.Accuracy, round(row.Accuracy, 4), color='black', ha='center')
         plt.xlabel(None)
         plt.ylabel('Categorical Accuracy')
         plt.title('Accuracy Among Top 5 Predicted Classes')
-        plt.savefig(os.path.join(log_dir, 'Accuracy_Top5.png'))
+        plt.savefig(os.path.join(log_dir, 'cmc_curve_5.png'))
         plt.close()
 
+        # Cumulative Matching Characteristic Curve: Top 50
+        figure(figsize=(25, 10))
+        sns.set(font_scale=1)
+        g = sns.barplot(data=accuracy.iloc[:50], x='index', y='Accuracy', palette="crest")
+        plt.xlabel(None)
+        plt.ylabel('Cumulative Accuracy', fontsize=12)
+        plt.title('Cumulative Matching Characteristic Curve of Top 50 Categories', fontsize=20)
+        plt.xticks(rotation=45, ha='right')
+        plt.savefig(os.path.join(log_dir, 'cmc_curve_50.png'))
+
         # Multiclass confusion matrix
+        classes = pd.concat([true, pred_classes], axis=1)
         labels = classes['true_label'].drop_duplicates().sort_values().tolist()
         conf_mat = pd.DataFrame(
             confusion_matrix(classes['true_label'], classes['Argmax(0)'], normalize='true', labels=labels),
