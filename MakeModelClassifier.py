@@ -101,12 +101,12 @@ class MakeModelClassifier(ClassifierCore):
             # Ensuring all three are balanced wrt classes by creating stratified random samples
             reverse_onehot = self.df.iloc[:, 2:].idxmax(axis=1).astype(int).reset_index()  # recover argmax
 
-            test_indices = reverse_onehot.groupby(by=0, group_keys=False).apply(lambda x: x.sample(max(int(np.floor(len(x) * self.config['test_size'])), 2))).index
+            test_indices = reverse_onehot.groupby(by=0, group_keys=False).apply(lambda x: x.sample(max(int(np.floor(len(x) * self.config['test_size'])), 10))).index
 
             remainder = reverse_onehot[~reverse_onehot.index.isin(test_indices)]
 
             validation_indices = remainder.groupby(by=0, group_keys=False).apply(
-                lambda x: x.sample(max(int(np.floor(len(x) * self.config['validation_size'])), 2))).index
+                lambda x: x.sample(max(int(np.floor(len(x) * self.config['validation_size'])), 10))).index
 
             train_indices = remainder[~remainder.index.isin(validation_indices)].index
 
@@ -313,7 +313,7 @@ def parse_opt():
     parser.add_argument('--batch-size', type=int, default=256, help='batch size')
     parser.add_argument('--logging', type=str, choices=['true', 'false'], default='true', help='turn off/on script logging, e.g. for CLI debugging')
     parser.add_argument('--seed', type=int, default=123, help='seed value for random number generator')
-    parser.add_argument('--min-bbox-area', type=int, default=4000, help='minimum pixel area of bounding box, otherwise image excluded')
+    parser.add_argument('--min-bbox-area', type=int, default=3731, help='minimum pixel area of bounding box, otherwise image excluded')
     parser.add_argument('--sample', type=float, default=1.0, help='share of image-df rows to sample, default 1.0. Used for debugging')
     # Mode
     group = parser.add_mutually_exclusive_group(required=True)

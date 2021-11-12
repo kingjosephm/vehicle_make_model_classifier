@@ -16,14 +16,14 @@ class ClassifierCore(ABC):
     def __init__(self, config):
         self.config = config
 
-    def read_dataframe(self, path: str, confidence: float = 0.6, min_bbox_area: int = 3731,
-                       min_class_img_count: int = 120, pixel_dilation: int = 20):
+    def read_dataframe(self, path: str, confidence: float = 0.5, min_bbox_area: int = 3731,
+                       min_class_img_count: int = 0, pixel_dilation: int = 5):
         """
         Reads and processes string path to CSV containing image paths and labels
         :param path: str, path to CSV file
         :param confidence: float, confidence level of object in bounding box of image
         :param min_bbox_area: int, min pixel area of bbox image, otherwise observation excluded
-        :param min_img_count: int, minimum number of images per make-model, else this category is excluded
+        :param min_class_img_count: int, minimum number of images per make-model, else this category is excluded
         :param pixel_dilation: int, number of extra pixels to add to YOLOv5 bounding box coordinates, producing less cropped image
         :return: pd.DataFrame
         """
