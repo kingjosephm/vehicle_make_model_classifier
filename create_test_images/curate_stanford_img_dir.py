@@ -20,8 +20,9 @@ if __name__ == '__main__':
             lst.append('/'.join(os.path.join(subdir, file).split('/')[-4:]))
 
     df = pd.DataFrame(lst, columns=['Source Path'])
+    df['Source Path'] = df['Source Path'].apply(lambda x: '/'.join(x.split('/')[1:]))
 
-    df['Make-Model'] = df['Source Path'].apply(lambda x: x.split('/')[2])
+    df['Make-Model'] = df['Source Path'].apply(lambda x: x.split('/')[1])
     df['Year'] = df['Make-Model'].str[-4:].astype(int)
     df = df.loc[df['Year'] >= 2000]
     df['Make-Model'] = df['Make-Model'].str[:-4]  # Remove year
