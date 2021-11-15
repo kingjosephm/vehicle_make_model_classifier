@@ -6,6 +6,7 @@ from time import time
 import caffeine
 import os
 import numpy as np
+import argparse
 
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_colwidth', None)
@@ -34,7 +35,7 @@ def detect_cars(path, model, min_confidence=0.5):
     coordinates = results.xyxy[0].numpy()
 
     if len(coordinates) == 0:  # no objects found
-        return []
+        return [], ()
 
     # Keep only: 2 (cars), 5 (bus), 7 (truck)
     # Note - results.name is a list containing the string names and coordinates[:, -1] is the list index of that object
@@ -44,7 +45,7 @@ def detect_cars(path, model, min_confidence=0.5):
     if len(coordinates[coordinates[:, 4] >= min_confidence]) > 0:
         coordinates = coordinates[coordinates[:, 4] >= min_confidence]
     else:  # none of car/bus/truck above confidence level
-        return []
+        return [], ()
 
     # Convert to bbox coordinates to int
     coordinates = np.concatenate((coordinates[:, :4].astype(int), coordinates[:, 4:]), axis=1)
@@ -57,22 +58,31 @@ def detect_cars(path, model, min_confidence=0.5):
 
     return coordinates[0:5].tolist(), dims
 
-if __name__ == '__main__':
 
-    # Read in model
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--img-dir', type=str, help='path to CSV containing relative image paths and labels', required=True)
+    parser.add_argument('--data', type=str, help='path to root directory where data located', required=True)
+    parser.add_argument('--min-confidence', type=float, default=0.5, help='minimum confidence level of YOLOv5 bounding box object type')
+    args = parser.parse_args()
+    assert (args.min_confidence >= 0 and args.min_confidence < 1), 'min-codence param is bounded 0-1!'
+    return args
+
+
+def main(opt):
+
+    # Read in model, or download
     model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
-    dir_path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories'
-    data_path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
-
-    df = pd.read_csv(os.path.join(dir_path, 'MakeModelDirectory.csv'))
+    df = pd.read_csv(opt.img_dir)
 
     start = time()
 
     output = []
     count = 0
     for i in df['Source Path']:
-        coord, dims = detect_cars(os.path.join(data_path, i), model, min_confidence=0.5)
+
+        coord, dims = detect_cars(os.path.join(opt.data, i), model, min_confidence=0.5)
         output.append([coord, dims])
         if (count % 1000 == 0) and (count > 0):
             print(f"Cumulative time after {count} images: {time() - start:.2f} sec\n")
@@ -83,6 +93,12 @@ if __name__ == '__main__':
 
     df = df.sort_values(by=['Make', 'Model'])
 
-    df.to_csv(os.path.join(dir_path, 'MakeModelDirectory_Bboxes.csv'), index=False)
+    df.to_csv(os.path.join(opt.data, 'Bboxes.csv'), index=False)
 
     caffeine.off()
+
+
+if __name__ == '__main__':
+
+    opt = parse_opt()
+    main(opt)
