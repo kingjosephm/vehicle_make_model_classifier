@@ -93,6 +93,6 @@ if __name__ == '__main__':
     df['Make-Model'] = df['Make'] + ' ' + df['Model']
     df = df.loc[df['Make-Model'].isin(keepers)].reset_index(drop=True)
 
-    df = df[['Make', 'Model', 'Make-Model', 'Year', 'Source Path']]
+    df = df[['Make', 'Model', 'Year', 'Source Path']]
     df = df.sample(frac=1, random_state=123)
     df.to_csv(os.path.join(root, 'stanford_img_dir.csv'), index=False)
