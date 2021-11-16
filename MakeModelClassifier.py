@@ -252,8 +252,6 @@ class MakeModelClassifier(ClassifierCore):
                                                           restore_best_weights=True,
                                                           patience=self.config['patience'])
 
-        if self.config['save_weights'] == 'true':
-            os.makedirs(checkpoint_directory)
         checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_directory+'/training_checkpoints', save_weights_only=True,
                                                         save_best_only=True, monitor='val_loss')
 
@@ -390,6 +388,15 @@ def main(opt):
 
     else:
         train, validation, test = mnc.image_pipeline(predict=False)
+
+        # Output label mapping to disk if weights saved
+        if mnc.config['save_weights'] == 'true':
+
+            checkpoint_directory = os.path.join(full_path, 'training_checkpoints')
+            os.makedirs(checkpoint_directory)
+
+            with open(os.path.join(checkpoint_directory, 'label_mapping.json'), 'w') as f:
+                json.dump(mnc.label_mapping, f)
 
         hist, model = mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
