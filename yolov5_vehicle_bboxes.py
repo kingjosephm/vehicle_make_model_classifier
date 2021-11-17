@@ -29,8 +29,8 @@ def detect_cars(path, model, min_confidence=0.5):
     except ValueError:  # Image is blank
         return []
 
-    dims = np.array(results.s)
-    dims = (dims[2], dims[3], dims[1])
+    dims = np.array(results.imgs).shape
+    dims = (dims[1], dims[2], dims[3])
 
     coordinates = results.xyxy[0].numpy()
 
