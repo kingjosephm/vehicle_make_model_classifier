@@ -135,6 +135,7 @@ class ClassifierCore(ABC):
             reverse_onehot = df.iloc[:, 2:].idxmax(axis=1).astype(int).reset_index()  # recover argmax
             indices = reverse_onehot.groupby(by=0, group_keys=False).apply(lambda x: x.sample(max(int(np.ceil(len(x) * self.config['sample'])), 1))).index
             df = df[df.index.isin(indices)]
+            df = df.reset_index(drop=True)
 
         return df, label_mapping
 

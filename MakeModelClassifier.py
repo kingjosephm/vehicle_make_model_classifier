@@ -16,6 +16,7 @@ import numpy as np
 from matplotlib.pyplot import figure
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix
+import tf2onnx
 
 """
     Credit: 
@@ -106,12 +107,20 @@ class MakeModelClassifier(ClassifierCore):
             # Ensuring all three are balanced wrt classes by creating stratified random samples
             reverse_onehot = self.df.iloc[:, 2:].idxmax(axis=1).astype(int).reset_index()  # recover argmax
 
-            test_indices = reverse_onehot.groupby(by=0, group_keys=False).apply(lambda x: x.sample(max(int(np.floor(len(x) * self.config['test_size'])), 10))).index
+            try:
+                test_indices = reverse_onehot.groupby(by=0, group_keys=False).apply(lambda x: x.sample(max(int(np.ceil(len(x) * self.config['test_size'])), 10))).index
+            except ValueError:  # small subsample often doesn't have 10+ per group
+                test_indices = reverse_onehot.groupby(by=0, group_keys=False).apply(
+                    lambda x: x.sample(max(int(np.ceil(len(x) * self.config['test_size'])), 1))).index
 
             remainder = reverse_onehot[~reverse_onehot.index.isin(test_indices)]
 
-            validation_indices = remainder.groupby(by=0, group_keys=False).apply(
-                lambda x: x.sample(max(int(np.floor(len(x) * self.config['validation_size'])), 10))).index
+            try:
+                validation_indices = remainder.groupby(by=0, group_keys=False).apply(
+                    lambda x: x.sample(max(int(np.ceil(len(x) * self.config['validation_size'])), 10))).index
+            except ValueError:
+                validation_indices = remainder.groupby(by=0, group_keys=False).apply(
+                    lambda x: x.sample(max(int(np.ceil(len(x) * self.config['validation_size'])), 1))).index
 
             train_indices = remainder[~remainder.index.isin(validation_indices)].index
 
@@ -385,6 +394,13 @@ def main(opt):
         train, validation, test = mnc.image_pipeline(predict=False)
 
         hist, model = mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
+
+        if mnc.config['save_weights'] == 'true':
+
+            spec = (tf.TensorSpec(((None,) + mnc.config['img_size'] + (3,)), tf.float32, name="input"),)
+            output_path = os.path.join(full_path, 'training_checkpoints', model.name + ".onnx")
+
+            model_proto, _ = tf2onnx.convert.from_keras(model, input_signature=spec, opset=13, output_path=output_path)
 
         # Output figure of model structure to disk
         visualkeras.layered_view(model, legend=True, to_file=os.path.join(log_dir, 'model_structure.png'))
