@@ -364,40 +364,40 @@ def main(opt):
         sys.stdout = open(os.path.join(log_dir, "Log.txt"), "w")
         sys.stderr = sys.stdout
 
-    mnc = MakeModelClassifier(vars(opt))
+    mmc = MakeModelClassifier(vars(opt))
 
     # Output config to logging dir
     with open(os.path.join(log_dir, 'config.json'), 'w') as f:
-        json.dump(mnc.config, f)
+        json.dump(mmc.config, f)
 
     # Output label mapping to logging dir
     with open(os.path.join(log_dir, 'label_mapping.json'), 'w') as f:
-        json.dump(mnc.label_mapping, f)
+        json.dump(mmc.label_mapping, f)
 
     if opt.predict:
-        _, _, test = mnc.image_pipeline(predict=True)
+        _, _, test = mmc.image_pipeline(predict=True)
 
         # Restore last checkpoint to get weights
         latest = tf.train.latest_checkpoint(opt.weights)
 
         # Find config associated with training weights to set model structure
-        with open(os.path.join(mnc.config['weights'], '../logs', 'config.json')) as f:
+        with open(os.path.join(mmc.config['weights'], '../logs', 'config.json')) as f:
             train_config = json.load(f)
 
-        mnc.config['units2'] = train_config['units2']
-        mnc.config['units1'] = train_config['units1']
+        mmc.config['units2'] = train_config['units2']
+        mmc.config['units1'] = train_config['units1']
 
-        model = mnc.build_compile_model()
+        model = mmc.build_compile_model()
         model.load_weights(latest)
 
     else:
-        train, validation, test = mnc.image_pipeline(predict=False)
+        train, validation, test = mmc.image_pipeline(predict=False)
 
-        hist, model = mnc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
+        hist, model = mmc.train_model(train, validation, checkpoint_directory=os.path.join(full_path, 'training_checkpoints'))
 
-        if mnc.config['save_weights'] == 'true':
+        if mmc.config['save_weights'] == 'true':
 
-            spec = (tf.TensorSpec(((None,) + mnc.config['img_size'] + (3,)), tf.float32, name="input"),)
+            spec = (tf.TensorSpec(((None,) + mmc.config['img_size'] + (3,)), tf.float32, name="input"),)
             output_path = os.path.join(full_path, 'training_checkpoints', model.name + ".onnx")
 
             model_proto, _ = tf2onnx.convert.from_keras(model, input_signature=spec, opset=13, output_path=output_path)
@@ -427,8 +427,8 @@ def main(opt):
     predictions = model.predict(test)
 
     colnames = []
-    for key in mnc.label_mapping.keys():
-        colnames.append(mnc.label_mapping[key])
+    for key in mmc.label_mapping.keys():
+        colnames.append(mmc.label_mapping[key])
     pred_df = pd.DataFrame(predictions, columns=colnames)
 
     images, labels = tuple(zip(*test))  # Recover labels
@@ -438,7 +438,7 @@ def main(opt):
         label_df = pd.concat([label_df, pd.DataFrame(labels[x].numpy())], axis=0)
     label_df = label_df.reset_index(drop=True)
     label_series = label_df.idxmax(axis=1).astype(str)
-    label_series.replace(to_replace=mnc.label_mapping, inplace=True)
+    label_series.replace(to_replace=mmc.label_mapping, inplace=True)
 
     pred_df = pd.concat([pred_df, label_series], axis=1).rename(columns={0: 'true_label'})
 
