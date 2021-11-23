@@ -72,7 +72,7 @@ def parse_opt():
 def main(opt):
 
     # Read in model, or download
-    model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
+    model = torch.hub.load('yolov5', 'custom', path='./yolov5/yolov5s.pt', source='local')
 
     df = pd.read_csv(opt.img_dir)
 
