@@ -73,8 +73,12 @@ This code develops a large (n=690,014) dataset of contemporary passenger motor v
   <br> <br />
 
 ## Descriptives
-- The empirical cumulative distribution function (ECDF) of bound box area of the scraped images can be seen below.
+- A kernel density plot of YOLOv5 bounding box confidence, conditional on > 0.5 confidence is displayed below
+<br />
 
+![kde_bb_confidence](./create_training_images/kdeplot_yolo_confidence.png)
+
+- The empirical cumulative distribution function (ECDF) of bound box area of the scraped images can be seen below.
 <br />
 
 ![ECDF_Bbox](./create_training_images/ecdf_bounding_box_area.png)
