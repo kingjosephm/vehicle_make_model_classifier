@@ -8,7 +8,7 @@ pd.set_option('display.max_rows', 550)
 
 if __name__ == '__main__':
 
-    data_dir_path = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/MakeModelDirectory_Bboxes.csv'
+    data_dir_path = './data/Bboxes.csv'
     dir_df = pd.read_csv(data_dir_path, usecols=['Make', 'Model'])
 
     root = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/stanford_car_data'

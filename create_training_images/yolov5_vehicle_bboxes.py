@@ -61,7 +61,7 @@ def detect_cars(path, model, min_confidence=0.5):
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--img-dir', type=str, help='path to CSV containing relative image paths and labels', required=True)
+    parser.add_argument('--img-dir', type=str, help='path to CSV containing relative image paths and labels', required=True)  # stored locally at ./data
     parser.add_argument('--data', type=str, help='path to root directory where data located', required=True)
     parser.add_argument('--min-confidence', type=float, default=0.5, help='minimum confidence level of YOLOv5 bounding box object type')
     args = parser.parse_args()

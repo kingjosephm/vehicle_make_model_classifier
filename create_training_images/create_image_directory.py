@@ -94,7 +94,7 @@ if __name__ == '__main__':
     ##### Merge vehicle type column #####
     #####################################
 
-    db = pd.read_csv('make_model_database_mod.csv')
+    db = pd.read_csv('../data/make_model_database_mod.csv')
     db = db[['Make', 'Model', 'Category']].drop_duplicates(subset=['Make', 'Model', 'Category']).reset_index(drop=True)
     db['Category'] = np.where(db.Category.isin(['Coupe', 'Sedan', 'Hatchback', 'Convertible', 'Wagon']), 'Car', db['Category'])
     db = db.drop_duplicates().reset_index(drop=True)
@@ -105,5 +105,6 @@ if __name__ == '__main__':
 
     df = df[['Make', 'Model', 'Category', 'Source Path', 'URL']]
 
-    outputPath = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories'
+    outputPath = './data'
+    os.makedirs(outputPath, exist_ok=True)
     df.to_csv(os.path.join(outputPath, 'MakeModelDirectory.csv'), index=False)

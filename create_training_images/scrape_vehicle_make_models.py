@@ -178,7 +178,7 @@ def parse_opt():
 
 def main(opt):
 
-    df = pd.read_csv('./create_training_images/make_model_database_mod.csv')
+    df = pd.read_csv('./data/make_model_database_mod.csv')
     rootOutput = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
 
     number_images = 100
