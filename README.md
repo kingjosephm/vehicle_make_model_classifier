@@ -1,16 +1,16 @@
 # Introduction
-*TODO*
+This code develops a large (n=690,014) dataset of contemporary passenger motor vehicles in the U.S. and an image classifier model to identify these vehicle makes and models. The end product of this code are model weights, which are used in a separate ML edge pipeline. A mockup of this pipeline can be found [here](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline).
 
 # Training Data
 ## Dataset construction
 #### Sampling frame
 - To create a representative sample of vehicle make and model images for the U.S. passenger vehicle market we rely on the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles manufactured in the US between the years 1992 and 2022. 
 <br> <br />
-- A copy of this database are stored locally at `./create_training_images/make_model_database.csv` along with the script to generate this extract at `./create_training_images/get_make_model_db.py`. At the time the data were queried, this database contained information on vehicles up through and including 2022 models, though 2022 models are only available for some manufacturers. The database contained information on 59 distinct vehicle manufacturers and 1,032 detailed make-model combinations over the period. 
+- A copy of this database are stored locally at `./data/make_model_database.csv` along with the script to generate this extract at `./create_training_images/get_make_model_db.py`. At the time the data were queried, this database contained information on vehicles up through and including 2022 models, though 2022 models are only available for some manufacturers. The database contained information on 59 distinct vehicle manufacturers and 1,032 detailed make-model combinations over the period. 
 <br> <br />
 - We drop 4 small vehicle manufacturers (e.g. Fisker, Polestar, Panoz, Rivian), 8 exotic car manufacturers (e.g. Ferrari, Lamborghini, Maserati, Rolls-Royce, McLaren, Bentley, Aston Martin, Lotus), and 7 brands with sparse information in the dataset (e.g. Alfa Romeo, Daewoo, Isuzu, Genesis, Mayback, Plymouth, Oldsmobile), reducing the number of distinct vehicle manufacturers in the data to 40. 
 <br> <br />
-- The resulting 40 manufacturers, their years present in the database, and the number of aggregated models per manufacturer in the database (see description below below) are displayed in the following table.
+- The resulting 40 manufacturers, their years present in the database, and the number of aggregated models per manufacturer in the database (see description below) are displayed in the following table.
 
 | Manufacturer | Years in Database | Number of Models |
 | --------- | ----- | ------- |
@@ -57,30 +57,31 @@
 
 - To reduce the number of detailed vehicle make-model combinations, related  models are combined together (e.g. Ford F-150 Super Cab and Ford F350 Super Duty Crew Cab are combined into a single Ford F-Series category) using the script at `./create_training_images/restrict_population_make_models.py`. This reduced the number of unique make-model combinations over the period to **574**. 
 <br> <br />
-- The restricted vehicle database is stored at `./create_training_images/make_model_database_mod.csv` with a corresponding analysis of this database in `./create_training_images/back4app_database_analysis.ipynb`. A full list of these 574 make-model classes can be seen by scrolling down.
+- The restricted vehicle database is stored at `./data/make_model_database_mod.csv` with a corresponding analysis of this database in `./create_training_images/back4app_database_analysis.ipynb`. A full list of these 574 make-model classes can be seen by scrolling down.
 
 #### Sampling method
 - Having defined the population of vehicles of interest, we scrape Google Images to download images that will be used as our training dataset. To capture sufficient variation *within* each vehicle make-model combination over time we scrape images using the detailed vehicle model descriptor, combined with the vehicle category (e.g. coupe, sedan, hatchback, SUV, comvertible, wagon, van, pickup), for every year available. In told, this produced 8,274 unique make-(detailed-)model-category-year combinations.
 <br> <br />
-- For every make-(detailed-)model-category-year combination, we scrape 100 images, which typically results in 85-90 savable PNG or JPG images. We store these data in separate directories on disk based on make-(aggregated-)model-year. In each directory, approximately 95% of saved images are exterior vehicle photographs with the vast majority corresponding to the correct vehicle make, model and year. 
+- For every make-(detailed-)model-category-year combination, we scrape 100 images, which typically results in 85-90 savable JPG images. We store these data in separate directories on disk based on make-(aggregated-)model-year. In each directory, approximately 95% of saved images are exterior vehicle photographs with the vast majority corresponding to the correct vehicle make, model and year. 
 
-## Descriptives
 #### Sample restrictions
-- A full analysis of the scraped image dataset can be found under `./create_training_images/scraped_image_analysis.ipynb`. 690,014 total images were scraped for all 574 make-model classes over the period. Of these, 531,599 (77.04%) images were identified as having vehicle objects in them, according to YOLOv5. Specifically, we restict to abjects that this algorithm labels as a car, truck, or bus and with a confidence of >= 0.5. If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. 
+- A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 690,014 total images were scraped for all 574 make-model classes over the period. Of these, 531,599 (77.04%) images were identified as having vehicle objects in them, according to YOLOv5. Specifically, we restict to abjects that this algorithm labels as a car, truck, or bus and with a confidence of >= 0.5. If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. 
   - Auxiliary analyses indicated that increasing the confidence threshold did not enhance model performance, while also reducing the number of sample images.
   <br> <br />
 - To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 5th percentile of pixel area, which reduced the total image count to 504,979 (73.18% of original images). The 5th percentile corresponded to 3,731 pixels, or approximately a 61 x 61 pixel image, which is comparably small. 
   - Auxiliary analyses indicated that increasing this minimum object size threshold did not appreciably enhance model performance, while also reducing the number of sample images.
   <br> <br />
+
+## Descriptives
 - The empirical cumulative distribution function (ECDF) of bound box area of the scraped images can be seen below.
 
 <br />
 
 ![ECDF_Bbox](./create_training_images/ecdf_bounding_box_area.png)
 
-- In auxiliary analyses we imposed restrictions on the minimum image count per class, meaning make-model classes below this threshold were excluded from training and evaluation. This, however, had little impact on model performance; correspondingly,we include all 574 classes in our final model.
+- In supplementary analyses we imposed restrictions on the minimum image count per class, meaning make-model classes below this threshold were excluded from training and evaluation. This, however, had little impact on model performance; correspondingly, we include all 574 classes in our final model.
 <br> <br />
-- The table and figure below display key statistical moments and the distribution in the number of images per class, respectively, net of our analytic restrictions
+- The table and figure below display key statistical moments and the distribution in the number of images per class, respectively, net of our analytic restrictions.
 
 | Statistic | Value |
 | --------- | ----- |
@@ -109,41 +110,52 @@
 ![test](./create_training_images/final_img_count_class.png)
 
 
-# Pipeline
-We develop code locally on our own laptop and upload updated scripts to the GPU cluster to execute code. At present, it's not possible to develop code on the GPU cluster itself. To upload the scripts that run the make-model classifier, `MakeModelClassifier.py` and `core.py`, to the cluster type:
+# Pipeline to Collect Training Images
+
+The following scripts were run in this order to create the sample of training images:
+
+  1) `./create_training_images/get_make_model_db.py`, which queries the back4app database, outputting -> `./data/make_model_database.csv`.
+<br> <br />
+  2) `./create_training_images/restrict_population_make_models.py`, which standardizes and fixes some errors in vehicle makes and models, outputting -> `./data/make_model_database_mod.csv`.
+<br> <br />
+  3) `./create_training_images/scrape_vehicle_make_models.py`, which scrapes Google Images for each detailed make-model-year combination.
+<br> <br />
+  4) `./create_training_images/create_image_directory.py`, which ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. This outputs -> `./data/MakeModelDirectory.csv`.
+<br> <br />
+  5) `./create_training_images/yolov5_vehicle_bboxes.py`, which classifies objects in images using [YOLOv5](https://github.com/ultralytics/yolov5). This outputs -> `./data/Bboxes.csv`.
+
+# Pipeline to Train the Make-Model Classifier
+We develop code locally on our local laptop and upload updated scripts to the GPU cluster to execute code. To upload the scripts that run the make-model classifier, `MakeModelClassifier.py` and `core.py`, along with the image directory `./data/Bboxes.csv` enter in your console:
 
     sh driver.sh
 
 Code will be copied onto the working directory for your profile on the GPU in a directory called `scripts`.
 
-## Docker
 
 ### Data on the GPU cluster
-The training data described above is stored in a Docker volume called `MERGEN_Make_Model_data`. These are also stored outside of Docker at `/home/kingj/scraped_images`.
+The training data described above are stored in a Docker volume called `MERGEN_Make_Model_data`. Images are also stored outside of Docker on the cluster at `/home/kingj/scraped_images`.
 
 ### Model output
 Results from running `MakeModelClassifier.py` are stored in a Docker volume called `MERGEN_Make_Model_output`.
 
-### Image dataframe with bounding boxes and labels
-A CSV file containing an absolute paths to each original JPG image, YOLOv5 bounding box coordinates, and labels is stored in a Docker volume called `MERGEN_Make_Model_config`. This is also stored at `/home/kingj/data_directories/MakeModelDirectory_Bboxes.csv`.
+### CSV file to associate images with labels
+A CSV file containing paths to each JPG image, YOLOv5 bounding box coordinates, make-model class labels, and image dimensions is stored locally at `./data/Bboxes.csv`. At training time we use this CSV to link each image (a string path, in this dataframe) to its associated label and bounding box coordinates. ***We do not pre-crop images down to their YOLOv5 bounding box; instead, images are cropped as they are streamed in the training process***. The make-model classifier is trained using cropped cropped images, though we dilate these bounding boxes by 5px as YOLOv5 bounding boxes tend to be tightly cropped.
 
 ### Run the classifier
-To run the classifier using an Inception layer, for example, in a detached Docker container, enter:
+To run the classifier using an ResNet50 layer, for example, in a detached Docker container, enter:
 
     docker run -it \
-        --name mm_resnet_50_8192_4096 \
+        --name make_model_classifier \
         --rm -d \
         --mount type=bind,source=/home/kingj/scripts,target=/scripts \
         --mount source=MERGEN_Make_Model_data,target=/data \
-        --mount source=MERGEN_Make_Model_config,target=/config \
         --mount source=MERGEN_Make_Model_output,target=/output \
         --gpus device=GPU-7a7c102c-5f71-a0fd-2ac0-f45a63c82dc5 \
         king0759/tf2_gpu_jupyter_mpl:v3 python3 ./scripts/MakeModelClassifier.py \
-        --train --data=/data --img-df=/config/MakeModelDirectory_Bboxes.csv \
-        --epochs=130 --output=/output --logging='true' --save-weights='true' \
-        --dropout=0.25 --patience=10 --batch-size=256 --units2=4096 --units1=2048 \
-        --model='resnet' --resnet-size='50' --min-class-img-count=0 \
-        --learning-rate=0.0001 --optimizer='adam'
+        --train --data=/data --epochs=130 --output=/output --logging='true' \
+        --save-weights='true' --dropout=0.25 --patience=10 --batch-size=256 \
+        --units2=4096 --units1=2048 --model='resnet' --resnet-size='50' \
+        --min-class-img-count=0 --learning-rate=0.0001 --optimizer='adam'
 
 The Docker image `king0759/tf2_gpu_jupyter_mpl:3` contains all the dependent modules. Importantly, you will need to update the mount source above to the scripts directory on your working directory, if you make changes to these scripts.You should also select one or more GPU to designate for your container:
 
@@ -155,7 +167,7 @@ The Docker image `king0759/tf2_gpu_jupyter_mpl:3` contains all the dependent mod
 These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs are free and which are being used type `nvidia-smi`. Their listed order corresponds to the above.
 
 # Results
-#### Best performing model
+### Best performing model
 
 - Framework: TensorFlow Keras
 - Optimizer: Adam
@@ -198,3 +210,6 @@ These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs a
 |13 | ResNet50V2 | 574 | 8192 x 4096 | 0.25 | 0.6804 | 0.8834 | 0.5900 | 0.8211 |
 
 All models trained using the Adam optimizer, a learning rate of 0.0001, max epochs of between 130-200 epochs with early stopping after 10 epochs, a minimum YOLOv5 bounding box area of 3,731 pixels, YOLOv5 confidence of 0.5, and batch size of 256.
+
+### External validity
+We employ a second set of test images from the [Stanford car dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) to evaluate the generalizability of our model. This dataset contains 16,185 images and 196 classes, though only 124 classes overlap with our scraped images. The Stanford images are likewise dated, with the newest make-model being from 2012. Nonetheless, our model performs comparably with these data as with an unseen test subset from our original data (see table above). The CSV image dataframe for these data was curated via `./create_test_images/curate_stanford_img_dir.py`.
