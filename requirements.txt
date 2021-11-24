@@ -69,6 +69,7 @@ numpy==1.19.5
 oauthlib==3.1.1
 onnx==1.10.2
 onnxruntime==1.9.0
+opencv-python-headless==4.5.4.60
 opt-einsum==3.3.0
 packaging==21.0
 pandas==1.1.5
@@ -93,6 +94,7 @@ python-apt==1.6.5+ubuntu0.6
 python-dateutil==2.8.2
 pytz==2021.1
 pyxdg==0.25
+PyYAML==6.0
 pyzmq==22.3.0
 qtconsole==5.1.1
 QtPy==1.11.1
@@ -118,7 +120,10 @@ terminado==0.12.1
 testpath==0.5.0
 tf2onnx==1.9.3
 threadpoolctl==3.0.0
+torch==1.10.0
+torchvision==0.11.1
 tornado==6.1
+tqdm==4.62.3
 traitlets==4.3.3
 typing-extensions==3.7.4.3
 urllib3==1.26.6
