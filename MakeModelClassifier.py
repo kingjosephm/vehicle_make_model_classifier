@@ -311,7 +311,7 @@ def parse_opt():
     parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train')
     parser.add_argument('--validation-size', type=float, default=0.2, help='validation set size as share of number of training images')
     parser.add_argument('--test-size', type=float, default=0.05, help='holdout test set size as share of number of training images')
-    parser.add_argument('--min-bbox-area', type=int, default=3731, help='minimum pixel area of bounding box, otherwise image excluded')
+    parser.add_argument('--min-bbox-area', type=int, default=8911, help='minimum pixel area of bounding box, otherwise image excluded')
     parser.add_argument('--save-weights', type=str, choices=['true', 'false'], default='true', help='save model checkpoints and weights')
     parser.add_argument('--share-grayscale', type=float, default=0.5, help='share of training images to read in as greyscale')
     parser.add_argument('--confidence', type=float, default=0.50, help='object confidence level for YOLOv5 bounding box')
@@ -336,7 +336,6 @@ def parse_opt():
         args.min_bbox_area = 0
 
     assert (args.share_grayscale >= 0.0 and args.share_grayscale <= 1.0), "share-greyscale is bounded between 0-1!"
-    assert (args.confidence >= 0.5 and args.confidence <= 1.0), "confidence is bounded between 0.5-1!"  # YOLOv5 bounding boxes only kept if >=0.5
     assert (args.test_size > 0.0 and args.test_size <= 0.15), "test size is a proportion and bounded between 0-0.15!"
     assert (args.validation_size > 0.0 and args.validation_size <= 0.3), "validation size is a proportion and bounded between 0-0.3!"
     assert (args.img_size == (224, 224)), "image size is only currently supported for 224 by 224 pixels"
@@ -437,8 +436,8 @@ def main(opt):
     for x in range(len(labels)):
         label_df = pd.concat([label_df, pd.DataFrame(labels[x].numpy())], axis=0)
     label_df = label_df.reset_index(drop=True)
-    label_series = label_df.idxmax(axis=1).astype(str)
-    label_series.replace(to_replace=mmc.label_mapping, inplace=True)
+    label_series = label_df.idxmax(axis=1)
+    label_series = label_series.replace(to_replace=mmc.label_mapping)
 
     pred_df = pd.concat([pred_df, label_series], axis=1).rename(columns={0: 'true_label'})
 
