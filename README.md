@@ -176,6 +176,9 @@ These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs a
 
 - Framework: TensorFlow Keras
 - Optimizer: Adam
+- YOLOv5 XL
+- YOLOv5 minimum confidence threshold: 0.75
+- Minimum YOLOv5 bounding box area: 8,911 pixels (1st percentile)
 - Batch size: 256
 - ResNet50V2
 - GlobalAveragePooling2D
@@ -185,8 +188,6 @@ These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs a
 - Max training epochs: 130
 - Early stopping patience: 10 epochs
 - Learning rate: 0.0001
-- YOLOv5 confidence threshold: 0.5
-- Minimum YOLOv5 bounding box area: 3,731 pixels (5th percentile)
 - Minimum training images per class: 0
 - Total classes: 574
 
@@ -196,25 +197,35 @@ These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs a
 
 - A more extensive analysis of performance in the test set can be viewed in the notebook at `./results/TestSetAnalysis.ipynb`.
 <br> <br />
-- The following table contains results from a host of recent experiments to find the optimal model given our training data. In particular number 12 is our best performing model.
+- The following table contains results from a host of recent experiments to find the optimal model given our training data. In particular number 14 is our best performing model.
 
-| Number | Pretrained Model | # Classes | Dense Layers | Dropout Rate | Test Argmax(0) | Test Argmax(0:5) | Stanford Argmax(0) | Stanford Argmax(0:5) |
-| ------ | ---------------- | --------- | ------------ | ------------ | -------------- | ---------------- | ------------------ | -------------------- |
-|1 | Xception | 552 | 512 | 0.05 | 0.4409 | 0.7184 |
-|2 | ResNet101V2 | 552 | 512 | 0.05 | 0.6031 | 0.8406 |
-|3 | ResNet101V2 | 574 | 512 | 0.05 | 0.6027 | 0.8365 |
-|4 | ResNet101V2 | 477 | 512 | 0.05 | 0.6192 | 0.8495 |
-|5 | ResNet101V2 | 352 | 512 | 0.05 | 0.6348 | 0.8637 |
-|6 | Inception | 574 | 512 | 0.05 | 0.4616 | 0.7272 |
-|7 | ResNet152V2 | 574 | 512 | 0.05 | 0.6113 | 0.8440 | 
-|8 | ResNet101V2 | 574 | 1024 | 0.05 | 0.6282 | 0.8499 |
-|9 | ResNet101V2 | 574 | 1024 x 1024 | 0.05 | 0.6431 | 0.8679 |
-|10 | MobileNetV2 | 574 | 1024 x 1024 | 0.05 | 0.4277 | 0.7089 |
-|11 | ResNet50V2 | 574 | 2048 x 1024 | 0.1 | 0.6614 | 0.8756 | 0.5996 | 0.8218 |
-|12 | ResNet50V2 | 574 | 4096 x 2048 | 0.2 | 0.6896 | 0.8887 | 0.5918 | 0.8253 |
-|13 | ResNet50V2 | 574 | 8192 x 4096 | 0.25 | 0.6804 | 0.8834 | 0.5900 | 0.8211 |
+| Number | Pretrained Model | # Classes | Dense Layers | Dropout Rate | YOLOv5 Model** | Test Argmax(0) | Test Argmax(0:4) | Stanford Argmax(0) | Stanford Argmax(0:4) |
+| ------ | ---------------- | --------- | ------------ | ------------ | ------------ | -------------- | ---------------- | ------------------ | -------------------- |
+|1 | Xception | 552 | 512 | 0.05 | small | 0.4409 | 0.7184 |
+|2 | ResNet101V2 | 552 | 512 | 0.05 | small | 0.6031 | 0.8406 |
+|3 | ResNet101V2 | 574 | 512 | 0.05 | small | 0.6027 | 0.8365 |
+|4 | ResNet101V2 | 477 | 512 | 0.05 | small | 0.6192 | 0.8495 |
+|5 | ResNet101V2 | 352 | 512 | 0.05 | small | 0.6348 | 0.8637 |
+|6 | Inception | 574 | 512 | 0.05 | small | 0.4616 | 0.7272 |
+|7 | ResNet152V2 | 574 | 512 | 0.05 | small | 0.6113 | 0.8440 | 
+|8 | ResNet101V2 | 574 | 1024 | 0.05 | small | 0.6282 | 0.8499 |
+|9 | ResNet101V2 | 574 | 1024 x 1024 | 0.05 | small | 0.6431 | 0.8679 |
+|10 | MobileNetV2 | 574 | 1024 x 1024 | 0.05 | small | 0.4277 | 0.7089 |
+|11 | ResNet50V2 | 574 | 2048 x 1024 | 0.1 | small | 0.6614 | 0.8756 | 0.5996 | 0.8218 |
+|12 | ResNet50V2 | 574 | 4096 x 2048 | 0.2 | small | 0.6896 | 0.8887 | 0.5918 | 0.8253 |
+|13 | ResNet50V2 | 574 | 8192 x 4096 | 0.25 | small | 0.6804 | 0.8834 | 0.5900 | 0.8211 |
+|14 | ResNet50V2 | 574 | 4096 x 2048 | 0.2 | xl | 0.7287 | 0.9153 | 0.6352 | 0.8644 |
 
-All models trained using the Adam optimizer, a learning rate of 0.0001, max epochs of between 130-200 epochs with early stopping after 10 epochs, a minimum YOLOv5 bounding box area of 3,731 pixels, YOLOv5 confidence of 0.5, and batch size of 256.
+All models trained using the Adam optimizer, a learning rate of 0.0001, max epochs of between 130-200 epochs with early stopping after 10 epochs, and a batch size of 256. <br> 
+** small YOLOv5 model trained using minimum bounding box area of 3,731 pixels (5th percentile) and minimum confidence of 0.5. <br>
+** xl YOLOv5 model trained using a minimum bounding box area of 8,911 pixels (1st percentile) and minimum confidence of 0.75 <br>
+<br> <br />
+
+![CMC Curve](./results/cmc_curve_5.png)
+<br> <br />
+![CMC Curve 50](./results/cmc_curve_50.png)
+<br> <br />
+![Sensitivity](./results/sensitivity_bar.png)
 
 ### External validity
 We employ a second set of test images from the [Stanford car dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) to evaluate the generalizability of our model. This dataset contains 16,185 images and 196 classes, though only 124 classes overlap with our scraped images. The Stanford images are likewise dated, with the newest make-model being from 2012. Nonetheless, our model performs comparably with these data as with an unseen test subset from our original data (see table above). The CSV image dataframe for these data was curated via `./create_test_images/curate_stanford_img_dir.py`.
