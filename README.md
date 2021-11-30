@@ -65,20 +65,21 @@ This code develops a large (n=690,014) dataset of contemporary passenger motor v
 - For every make-(detailed-)model-category-year combination, we scrape 100 images, which typically results in 85-90 savable JPG images. We store these data in separate directories on disk based on make-(aggregated-)model-year. In each directory, approximately 95% of saved images are exterior vehicle photographs with the vast majority corresponding to the correct vehicle make, model and year. 
 
 #### Sample restrictions
-- A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 690,014 total images were scraped for all 574 make-model classes over the period. Of these, 531,599 (77.04%) images were identified as having vehicle objects in them, according to YOLOv5. Specifically, we restict to abjects that this algorithm labels as a car, truck, or bus and with a confidence of >= 0.5. If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. 
-  - Auxiliary analyses indicated that increasing the confidence threshold did not enhance model performance, while also reducing the number of sample images.
+- A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 690,014 total images were scraped for all 574 make-model classes over the period. Of these, 656,294 (95.11%) images were identified as having a vehicle object in them, according to the YOLOv5 (XL) algorithm. Specifically, we restict to abjects that this algorithm labels as a car, truck, or bus and with a confidence of >= 0.75. If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. In the next section we present a kernel density plot of the distribution of YOLOv5 XL confidence levels in our training data.
+  - Auxiliary analyses indicated that vehicle make-model classifier model performance was similar using a 0.5 YOLOv5 XL confidence level, though we opted for a higher threshold to err on the side of caution.
   <br> <br />
-- To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 5th percentile of pixel area, which reduced the total image count to 504,979 (73.18% of original images). The 5th percentile corresponded to 3,731 pixels, or approximately a 61 x 61 pixel image, which is comparably small. 
+- To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 1st percentile of pixel area, which reduced the total image count to 649,731 (94.16% of original images). The 1st percentile corresponded to 8,911 pixels, or approximately a 94 x 94 pixel image, which is comparably small. 
   - Auxiliary analyses indicated that increasing this minimum object size threshold did not appreciably enhance model performance, while also reducing the number of sample images.
   <br> <br />
+- In the notebook at `./create_training_images/compare_yolov5_models.ipynb` we examine the distributons of confidence and bounding box area across the YOLOv5 small, medium, large, and XL models. 
 
 ## Descriptives
-- A kernel density plot of YOLOv5 bounding box confidence, conditional on > 0.5 confidence is displayed below
+- A kernel density plot of YOLOv5 XL bounding box confidence.
 <br />
 
 ![kde_bb_confidence](./create_training_images/kdeplot_yolo_confidence.png)
 
-- The empirical cumulative distribution function (ECDF) of bound box area of the scraped images can be seen below.
+- The empirical cumulative distribution function (ECDF) of bound box area from the YOLOv5 XL model.
 <br />
 
 ![ECDF_Bbox](./create_training_images/ecdf_bounding_box_area.png)
