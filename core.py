@@ -127,6 +127,9 @@ class ClassifierCore(ABC):
             # Concat together
             df = pd.concat([df[['Source Path', 'Bboxes']], dummies], axis=1)
 
+            # Covert label mapping values to int, rather than string
+            label_mapping = {int(k):v for k,v in label_mapping.items()}
+
         # Shuffle data
         df = df.sample(frac=self.config['sample'], random_state=self.config['seed']).reset_index(drop=True)
 
