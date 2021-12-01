@@ -53,15 +53,15 @@ def create_image_df(rootDir):
     df['Make-Model'] = np.where(df['Make-Model'] == 'TOYOTA PRIUS', 'Toyota Prius', df['Make-Model'])
     df['Make-Model'] = np.where(df['Make-Model'] == 'TOYOTA CAMRY', 'Toyota Camry', df['Make-Model'])
     df['Make-Model'] = np.where(df['Make-Model'] == 'TOYOTA TUNDRA', 'Toyota Tundra', df['Make-Model'])
-    df['Make-Model'] = np.where(df['Make-Model'] == 'HONDA CRV', 'Honda CRV', df['Make-Model'])
+    df['Make-Model'] = np.where(df['Make-Model'] == 'HONDA CRV', 'Honda CR-V', df['Make-Model'])
     df['Make-Model'] = np.where(df['Make-Model'] == 'JEEP WRANGLER', 'Jeep Wrangler', df['Make-Model'])
     df['Make-Model'] = np.where(df['Make-Model'] == 'JEEP CHEROKEE', 'Jeep Cherokee', df['Make-Model'])
-    df['Make-Model'] = np.where(df['Make-Model'] == 'HYUNDAI SANTA FE', 'Hyundai Santa FE', df['Make-Model'])
+    df['Make-Model'] = np.where(df['Make-Model'] == 'HYUNDAI SANTA FE', 'Hyundai Santa Fe', df['Make-Model'])
     df['Make-Model'] = np.where(df['Make-Model'] == 'VOLVO XC90', 'Volvo XC90', df['Make-Model'])
     df['Make-Model'] = np.where(df['Make-Model'] == 'MERCEDES C CLASS', 'Mercedes-Benz C-Class', df['Make-Model'])
 
     df['Make'] = df['Make-Model'].apply(lambda x: ''.join(x.split(' ')[0]))
-    df['Model'] = df['Make-Model'].apply(lambda x: ''.join(x.split(' ')[1]))
+    df['Model'] = df['Make-Model'].apply(lambda x: ''.join(x.split(' ')[1:]))
 
     df = df[['Make', 'Model', 'Source Path', 'visible']]
 
