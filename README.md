@@ -65,10 +65,10 @@ This code develops a large (n=690,014) dataset of contemporary passenger motor v
 - For every make-(detailed-)model-category-year combination, we scrape 100 images, which typically results in 85-90 savable JPG images. We store these data in separate directories on disk based on make-(aggregated-)model-year. In each directory, approximately 95% of saved images are exterior vehicle photographs with the vast majority corresponding to the correct vehicle make, model and year. 
 
 #### Sample restrictions
-- A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 690,014 total images were scraped for all 574 make-model classes over the period. Of these, 656,294 (95.11%) images were identified as having a vehicle object in them, according to the YOLOv5 (XL) algorithm. Specifically, we restict to abjects that this algorithm labels as a car, truck, or bus and with a confidence of >= 0.75. If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. In the next section we present a kernel density plot of the distribution of YOLOv5 XL confidence levels in our training data.
+- A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 664,678 total images were scraped for all 574 make-model classes over the period. Of these, 631,973 (95.08%) images were identified as having a vehicle object in them, according to the YOLOv5 (XL) algorithm. Specifically, we restict to abjects that this algorithm labels as a car, truck, or bus and with a confidence of >= 0.75. If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. In the next section we present a kernel density plot of the distribution of YOLOv5 XL confidence levels in our training data.
   - Auxiliary analyses indicated that vehicle make-model classifier model performance was similar using a 0.5 YOLOv5 XL confidence level, though we opted for a higher threshold to err on the side of caution.
   <br> <br />
-- To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 1st percentile of pixel area, which reduced the total image count to 649,731 (94.16% of original images). The 1st percentile corresponded to 8,911 pixels, or approximately a 94 x 94 pixel image, which is comparably small. 
+- To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 1st percentile of pixel area, which reduced the total image count to 625,653 (94.12% of original images). The 1st percentile corresponded to 8,911 pixels, or approximately a 94 x 94 pixel image, which is comparably small. 
   - Auxiliary analyses indicated that increasing this minimum object size threshold did not appreciably enhance model performance, while also reducing the number of sample images.
   <br> <br />
 - In the notebook at `./create_training_images/compare_yolov5_models.ipynb` we examine the distributons of confidence and bounding box area across the YOLOv5 small, medium, large, and XL models. 
@@ -144,7 +144,7 @@ The training data described above are stored in a Docker volume called `MERGEN_M
 Results from running `MakeModelClassifier.py` are stored in a Docker volume called `MERGEN_Make_Model_output`.
 
 ### CSV file to associate images with labels
-A CSV file containing paths to each JPG image, YOLOv5 bounding box coordinates, make-model class labels, and image dimensions is stored locally at `./data/Bboxes.csv`. At training time we use this CSV to link each image (a string path, in this dataframe) to its associated label and bounding box coordinates. ***We do not pre-crop images down to their YOLOv5 bounding box; instead, images are cropped as they are streamed in the training process***. The make-model classifier is trained using cropped cropped images, though we dilate these bounding boxes by 5px as YOLOv5 bounding boxes tend to be tightly cropped.
+A CSV file containing paths to each JPG image, YOLOv5 bounding box coordinates, make-model class labels, and image dimensions is stored locally at `./data/Bboxes.csv`. At training time we use this CSV to link each image (a string path, in this dataframe) to its associated label and bounding box coordinates. ***We do not pre-crop images down to their YOLOv5 XL bounding box; instead, images are cropped as they are streamed in the training process***. The make-model classifier is trained using cropped cropped images, though we dilate these bounding boxes by 5px as YOLOv5 bounding boxes tend to be tightly cropped.
 
 ### Run the classifier
 To run the classifier using an ResNet50 layer, for example, in a detached Docker container, enter:
@@ -214,7 +214,7 @@ These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs a
 |11 | ResNet50V2 | 574 | 2048 x 1024 | 0.1 | small | 0.6614 | 0.8756 | 0.5996 | 0.8218 |
 |12 | ResNet50V2 | 574 | 4096 x 2048 | 0.2 | small | 0.6896 | 0.8887 | 0.5918 | 0.8253 |
 |13 | ResNet50V2 | 574 | 8192 x 4096 | 0.25 | small | 0.6804 | 0.8834 | 0.5900 | 0.8211 |
-|14 | ResNet50V2 | 574 | 4096 x 2048 | 0.2 | xl | 0.7287 | 0.9153 | 0.6352 | 0.8644 |
+|14 | ResNet50V2 | 574 | 4096 x 2048 | 0.2 | xl | 0.7067 | 0.9092 | 0.6406 | 0.8685 |
 
 All models trained using the Adam optimizer, a learning rate of 0.0001, max epochs of between 130-200 epochs with early stopping after 10 epochs, and a batch size of 256. <br> 
 ** small YOLOv5 model trained using minimum bounding box area of 3,731 pixels (5th percentile) and minimum confidence of 0.5. <br>
@@ -228,4 +228,4 @@ All models trained using the Adam optimizer, a learning rate of 0.0001, max epoc
 ![Sensitivity](./results/sensitivity_bar.png)
 
 ### External validity
-We employ a second set of test images from the [Stanford car dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) to evaluate the generalizability of our model. This dataset contains 16,185 images and 196 classes, though only 124 classes overlap with our scraped images. The Stanford images are likewise dated, with the newest make-model being from 2012. Nonetheless, our model performs comparably with these data as with an unseen test subset from our original data (see table above). The CSV image dataframe for these data was curated via `./create_test_images/curate_stanford_img_dir.py`.
+We employ a second set of test images from the [Stanford car dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) to evaluate the generalizability of our model. This dataset contains 16,185 images and 196 classes, though only 124 classes overlap with our scraped images. The Stanford images are likewise dated, with the newest make-model being from 2012. Nonetheless, our model performs comparably with these data as with an unseen test subset from our original data (see table above). The CSV image dataframe for these data was curated via `./create_test_images/curate_stanford_img_dir.py`. The YOLOv5 model used for these data are the same as that indicated by the "YOLOv5 Model" column in the table above.
