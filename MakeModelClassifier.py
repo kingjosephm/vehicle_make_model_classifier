@@ -544,7 +544,10 @@ def main(opt):
     plt.xlabel(None)
     plt.ylabel('Sensitivity / Recall / TPR', fontsize=15)
     plt.tight_layout()
-    plt.title('Best and Worst 50 Classified Make-Models', fontsize=20, pad=-18)
+    if label_series.nunique() > 100:
+        plt.title('Best and Worst 50 Classified Make-Models', fontsize=20, pad=-18)
+    else:
+        plt.title(f'Classification of Make-Models from Best to Worst', fontsize=20, pad=-18)
     plt.savefig(os.path.join(log_dir, 'sensitivity_bar.png'), dpi=200)
     plt.close()
 
