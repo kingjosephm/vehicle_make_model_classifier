@@ -30,7 +30,8 @@ class MakeModelClassifier(ClassifierCore):
         self.df, self.label_mapping = super().read_dataframe(self.config['img_df'],
                                                              min_class_img_count=self.config['min_class_img_count'],
                                                              pixel_dilation=self.config['pixel_dilation'],
-                                                             train_mode=self.config['train'])
+                                                             train_mode=self.config['train'],
+                                                             confidence=self.config['confidence'])
 
     def process_image_train(self, image_file, bboxes: tf.Tensor, labels: tuple):
         """
