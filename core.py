@@ -37,8 +37,8 @@ class ClassifierCore(ABC):
         df = df.loc[df.Bboxes.str.len() != 0].reset_index(drop=True)  # restrict to rows with bounding boxes
 
         # Restrict to images with bounding boxes meeting minimum confidence level
-        conf = df['Bboxes'].apply(lambda x: x[4])
-        df = df.loc[conf >= confidence].reset_index(drop=True)
+        df['conf'] = df['Bboxes'].apply(lambda x: x[4])
+        df = df.loc[df['conf'] >= confidence].reset_index(drop=True)
 
         # Bbox image size in pixel area]
         area = df['Bboxes'].apply(lambda x: (x[3] - x[1]) * (x[2] - x[0])).astype(int)  # Format: xyxy
@@ -69,7 +69,7 @@ class ClassifierCore(ABC):
         df['Source Path'] = df['Source Path'].apply(lambda x: self.config['data'] + '/' + x)
 
         # Rearrange
-        df = df[['Make', 'Make-Model', 'Source Path', 'Bboxes']]
+        df = df[['Make', 'Make-Model', 'Source Path', 'Bboxes', 'conf']]
 
         if train_mode:
 
@@ -95,7 +95,7 @@ class ClassifierCore(ABC):
             dummies.columns = [i[1:] for i in dummies.columns]
 
             # Concat together
-            df = pd.concat([df[['Source Path', 'Bboxes']], dummies], axis=1)
+            df = pd.concat([df[['Source Path', 'Bboxes', 'conf']], dummies], axis=1)
 
         else:  # predict mode
 
@@ -125,7 +125,7 @@ class ClassifierCore(ABC):
             assert (dummies.shape[1] == len(label_mapping))
 
             # Concat together
-            df = pd.concat([df[['Source Path', 'Bboxes']], dummies], axis=1)
+            df = pd.concat([df[['Source Path', 'Bboxes', 'conf']], dummies], axis=1)
 
             # Covert label mapping values to int, rather than string
             label_mapping = {int(k):v for k,v in label_mapping.items()}

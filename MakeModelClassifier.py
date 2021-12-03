@@ -78,12 +78,12 @@ class MakeModelClassifier(ClassifierCore):
         :param df: pd.DataFrame
         :return: tensorflow.python.data.experimental.ops.interleave_ops._DirectedInterleaveDataset
         """
-        categories = df.columns.tolist()[2:]
+        categories = df.columns.tolist()[3:]
         df_list = []
         for x in categories:
             temp = df.loc[df[x] == 1]
             tf_df = tf.data.Dataset.from_tensor_slices(
-                (temp['Source Path'], tf.cast(list(temp['Bboxes']), tf.int32), (temp.iloc[:, 2:])))
+                (temp['Source Path'], tf.cast(list(temp['Bboxes']), tf.int32), (temp.iloc[:, 3:])))
             tf_df = tf_df.shuffle(buffer_size=len(df)).repeat()
             df_list.append(tf_df)
 
@@ -98,14 +98,14 @@ class MakeModelClassifier(ClassifierCore):
             train = None
             validation = None
 
-            test = tf.data.Dataset.from_tensor_slices((self.df['Source Path'], tf.cast(list(self.df['Bboxes']), tf.int32), (self.df.iloc[:, 2:])))
+            test = tf.data.Dataset.from_tensor_slices((self.df['Source Path'], tf.cast(list(self.df['Bboxes']), tf.int32), (self.df.iloc[:, 3:])))
             test = test.map(self.process_image, num_parallel_calls=tf.data.AUTOTUNE)
             test = test.batch(self.config['batch_size']).prefetch(buffer_size=tf.data.AUTOTUNE)
 
         else:
             # Partition df into test, validation, and train splits
             # Ensuring all three are balanced wrt classes by creating stratified random samples
-            reverse_onehot = self.df.iloc[:, 2:].idxmax(axis=1).astype(int).reset_index()  # recover argmax
+            reverse_onehot = self.df.iloc[:, 3:].idxmax(axis=1).astype(int).reset_index()  # recover argmax
 
             try:
                 test_indices = reverse_onehot.groupby(by=0, group_keys=False).apply(lambda x: x.sample(max(int(np.ceil(len(x) * self.config['test_size'])), 10))).index
@@ -134,12 +134,12 @@ class MakeModelClassifier(ClassifierCore):
                 train = self.create_balanced_df(train)
             else:
                 validation = tf.data.Dataset.from_tensor_slices(
-                    (validation['Source Path'], tf.cast(list(validation['Bboxes']), tf.int32), (validation.iloc[:, 2:])))
+                    (validation['Source Path'], tf.cast(list(validation['Bboxes']), tf.int32), (validation.iloc[:, 3:])))
                 train = tf.data.Dataset.from_tensor_slices(
-                    (train['Source Path'], tf.cast(list(train['Bboxes']), tf.int32), (train.iloc[:, 2:])))
+                    (train['Source Path'], tf.cast(list(train['Bboxes']), tf.int32), (train.iloc[:, 3:])))
 
             test = tf.data.Dataset.from_tensor_slices(
-                (test['Source Path'], tf.cast(list(test['Bboxes']), tf.int32), (test.iloc[:, 2:])))
+                (test['Source Path'], tf.cast(list(test['Bboxes']), tf.int32), (test.iloc[:, 3:])))
 
             # Mapping function to read and adjust images
             # Note - large datasets should not be cached since cannot all fit in memory at once
@@ -203,7 +203,7 @@ class MakeModelClassifier(ClassifierCore):
         if self.config['units1'] > 0:
             x = tf.keras.layers.Dense(self.config['units1'], activation='relu')(x)
             x = tf.keras.layers.Dropout(self.config['dropout'])(x)
-        output = tf.keras.layers.Dense(self.df.iloc[:, 2:].shape[1], activation='softmax')(x)
+        output = tf.keras.layers.Dense(self.df.iloc[:, 3:].shape[1], activation='softmax')(x)
         model = tf.keras.Model(inputs, output)
 
         # Compile model
@@ -440,12 +440,16 @@ def main(opt):
     label_series = label_series.replace(to_replace=mmc.label_mapping)
 
     pred_df = pd.concat([pred_df, label_series], axis=1).rename(columns={0: 'true_label'})
-
+    if opt.predict:   # Concat YOLOv5 confidence, if predict mode. Train mode requires passing through TF dataset
+        pred_df = pd.concat([pred_df, mmc.df['conf']], axis=1)
     pred_df.to_csv(os.path.join(log_dir, 'predictions.csv'), index=False)
 
     # Rank accuracy figure
     true = pred_df['true_label'].copy()
-    del pred_df['true_label']
+    if opt.predict:
+        pred_df.drop(columns=['true_label', 'conf'], inplace=True)
+    else:
+        pred_df.drop(columns=['true_label'], inplace=True)
 
     lst = []
     index = pred_df.columns.tolist()  # columns become indices below
