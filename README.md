@@ -1,5 +1,5 @@
 # Introduction
-This code develops a large (n=690,014) dataset of contemporary passenger motor vehicles in the U.S. and an image classifier model to identify these vehicle makes and models. The end product of this code are model weights, which are used in a separate ML edge pipeline. A mockup of this pipeline can be found [here](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline).
+This code develops a large (n=664,678) dataset of contemporary passenger motor vehicles in the U.S. and an image classifier model to identify these vehicle makes and models. To train this classifier we first employ the YOLOv5 algorithm to generate bounding box coordinates around one vehicle per image. At training time, we crop each image using the YOLOv5 bounding box coordinates and train the classifier on the resulting pixel area. The end product of this code are model weights, which are used in a separate ML edge pipeline. A mockup of this pipeline can be found [here](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline).
 
 # Training Data
 ## Dataset construction
@@ -65,10 +65,12 @@ This code develops a large (n=690,014) dataset of contemporary passenger motor v
 - For every make-(detailed-)model-category-year combination, we scrape 100 images, which typically results in 85-90 savable JPG images. We store these data in separate directories on disk based on make-(aggregated-)model-year. In each directory, approximately 95% of saved images are exterior vehicle photographs with the vast majority corresponding to the correct vehicle make, model and year. 
 
 #### Sample restrictions
-- A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 664,678 total images were scraped for all 574 make-model classes over the period. Of these, 631,973 (95.08%) images were identified as having a vehicle object in them, according to the YOLOv5 (XL) algorithm. Specifically, we restict to abjects that this algorithm labels as a car, truck, or bus and with a confidence of >= 0.75. If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. In the next section we present a kernel density plot of the distribution of YOLOv5 XL confidence levels in our training data.
-  - Auxiliary analyses indicated that vehicle make-model classifier model performance was similar using a 0.5 YOLOv5 XL confidence level, though we opted for a higher threshold to err on the side of caution.
+- A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 664,678 total images were scraped for all 574 make-model classes over the period. Of these, 631,973 (95.08%) images were identified as having a vehicle object in them, according to the YOLOv5 (XL) algorithm. 
+ <br> <br />
+- To ensure fidelity of our resulting vehicles images and bounding box coordinates (for cropping), we restrict to bounding box coordinates from the YOLOv5 XL model with a confidence >= 0.5 (609,265 images; 91.66%). If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. In the next section we present a kernel density plot of the distribution of YOLOv5 XL confidence levels in our training data.
+  - We considerably examined the impact of YOLOv5 model confidence level on vehicle classifier performance and found a weak correlation. While the particular YOLOv5 model selected (e.g. small/medium/large/XL) affected classifier performance by about +/- 3 percentage points, varying the level of confidence for the same YOLOv5 model did not greatly affect the classifier.
   <br> <br />
-- To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 1st percentile of pixel area, which reduced the total image count to 625,653 (94.12% of original images). The 1st percentile corresponded to 8,911 pixels, or approximately a 94 x 94 pixel image, which is comparably small. 
+- To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 1st percentile of pixel area, which reduced the total image count to 603,899 (90.86% of original images). The 1st percentile corresponded to 8,911 pixels, or approximately a 94 x 94 pixel image, which is comparably small. 
   - Auxiliary analyses indicated that increasing this minimum object size threshold did not appreciably enhance model performance, while also reducing the number of sample images.
   <br> <br />
 - In the notebook at `./create_training_images/compare_yolov5_models.ipynb` we examine the distributons of confidence and bounding box area across the YOLOv5 small, medium, large, and XL models. 
@@ -177,7 +179,7 @@ These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs a
 - Framework: TensorFlow Keras
 - Optimizer: Adam
 - YOLOv5 XL
-- YOLOv5 minimum confidence threshold: 0.75
+- YOLOv5 minimum confidence threshold: 0.50
 - Minimum YOLOv5 bounding box area: 8,911 pixels (1st percentile)
 - Batch size: 256
 - ResNet50V2
@@ -218,7 +220,7 @@ These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs a
 
 All models trained using the Adam optimizer, a learning rate of 0.0001, max epochs of between 130-200 epochs with early stopping after 10 epochs, and a batch size of 256. <br> 
 ** small YOLOv5 model trained using minimum bounding box area of 3,731 pixels (5th percentile) and minimum confidence of 0.5. <br>
-** xl YOLOv5 model trained using a minimum bounding box area of 8,911 pixels (1st percentile) and minimum confidence of 0.75 <br>
+** xl YOLOv5 model trained using a minimum bounding box area of 8,911 pixels (1st percentile) and minimum confidence of 0.50 <br>
 <br> <br />
 
 ![CMC Curve](./results/cmc_curve_5.png)
