@@ -13,6 +13,14 @@ def valid_URL(url):
     except TypeError:
         return False
 
+"""
+    Note - URLs that begin with `https://encrypted-tbn0.gstatistic.com` are cached images stored on Google's servers
+    to speed up deliver of image results. While this is a valid URL, this denotes Google has recognized that the original 
+    image has been deleted and it will be purged from its systems at some point. 
+    
+    Source: https://support.google.com/webmasters/thread/5941325/remove-encrypted-tbn0-gstatic-com-images-images-from-search-results?hl=en
+"""
+
 if __name__ == '__main__':
 
 
