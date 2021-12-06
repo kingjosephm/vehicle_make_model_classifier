@@ -11,6 +11,7 @@ backcall==0.2.0
 bleach==4.1.0
 cached-property==1.5.2
 cachetools==4.2.2
+caffeine==0.5
 certifi==2021.5.30
 cffi==1.14.6
 charset-normalizer==2.0.4
@@ -106,6 +107,7 @@ scikit-learn==0.24.2
 scipy==1.5.4
 seaborn==0.11.2
 SecretStorage==2.3.1
+selenium==3.141.0
 Send2Trash==1.8.0
 six==1.15.0
 sklearn==0.0
@@ -127,6 +129,7 @@ tqdm==4.62.3
 traitlets==4.3.3
 typing-extensions==3.7.4.3
 urllib3==1.26.6
+validators==0.18.2
 visualkeras==0.0.2
 wcwidth==0.2.5
 webencodings==0.5.1
