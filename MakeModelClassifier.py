@@ -18,11 +18,6 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, multilabel_confusion_matrix
 import tf2onnx
 
-"""
-    Credit: 
-        https://www.tensorflow.org/tutorials/distribute/custom_training#define_the_loss_function
-"""
-
 
 class MakeModelClassifier(ClassifierCore):
     def __init__(self, config):
