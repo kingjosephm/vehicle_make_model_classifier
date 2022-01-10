@@ -1,16 +1,25 @@
 # Introduction
-This code develops a large (n=664,678) dataset of contemporary passenger motor vehicles in the U.S. and an image classifier model to identify these vehicle makes and models. To train this classifier we first employ the YOLOv5 algorithm to generate bounding box coordinates around one vehicle per image. At training time, we crop each image using the YOLOv5 bounding box coordinates and train the classifier on the resulting pixel area. The end product of this code are model weights, which are used in a separate ML edge pipeline. A mockup of this pipeline can be found [here](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline).
+The code in this repository develops a computer vision model to classify passenger vehicle makes (i.e. manufacturer) and models. 
 
-# Training Data
-## Dataset construction
-#### Sampling frame
-- To create a representative sample of vehicle make and model images for the U.S. passenger vehicle market we rely on the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles manufactured in the US between the years 1992 and 2022. 
-<br> <br />
-- A copy of this database are stored locally at `./data/make_model_database.csv` along with the script to generate this extract at `./create_training_images/get_make_model_db.py`. At the time the data were queried, this database contained information on vehicles up through and including 2022 models, though 2022 models are only available for some manufacturers. The database contained information on 59 distinct vehicle manufacturers and 1,032 detailed make-model combinations over the period. 
-<br> <br />
-- We drop 4 small vehicle manufacturers (e.g. Fisker, Polestar, Panoz, Rivian), 8 exotic car manufacturers (e.g. Ferrari, Lamborghini, Maserati, Rolls-Royce, McLaren, Bentley, Aston Martin, Lotus), and 7 brands with sparse information in the dataset (e.g. Alfa Romeo, Daewoo, Isuzu, Genesis, Mayback, Plymouth, Oldsmobile), reducing the number of distinct vehicle manufacturers in the data to 40. 
-<br> <br />
-- The resulting 40 manufacturers, their years present in the database, and the number of aggregated models per manufacturer in the database (see description below) are displayed in the following table.
+This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to the [trained cGAN model for conversion to the visible spectrum](https://github.boozallencsn.com/MERGEN/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
+
+We train our vehicle make-model classifier using a large (n=664,678) dataset of 40 passenger vehicle manufacturers and 574 distinct make-models.
+
+# Repository branches
+- `main` **[this branch]**: code to create our training dataset as well as code to create and train make-model classifier model
+- `combine_stanford_vmmr`: older branch that merged vehicle images from the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) with the [VMMR database](https://github.com/faezetta/VMMRdb). Because of the size and questionable representativeness of these datasets, we opted to create our own image dataset
+- `tf_distributed`: older branch in which we distributed training of the TensorFlow Keras model across GPUs. For simplicity we opted for training on one GPU
+
+# Vehicle make-model classifier
+Compared to object detection, interest and research in vehicle classification lags significantly. Several small-scale research projects can be found via Google (e.g. [example 1](https://towardsdatascience.com/car-model-classification-e1ff09573f4f), [example 2](https://medium.com/@sridatta0808/deep-learning-based-vehicle-make-model-mmr-classification-on-carconnection-dataset-9bc93997041f)) and at least [one company](http://spectrico.com/car-make-model-recognition.html) offers commercial products. Based in part on the former research projects, we opted to build our own vehicle make-model classifier as this enabled us to customize to our particular need.
+
+We use a pretrained Tensorflow Keras [ResNet50v2](https://arxiv.org/abs/1603.05027) layer, which was trained using [ImageNet](https://www.image-net.org/), a large open-source image dataset consisting of 1,000+ distinct classes. We remove the top output layer of ResNet50v2, substituting this with our own trainable layers (described below). We also conducted several experiments varying, among other things, the pretrained layer and top model architecture (described below).
+
+# Data
+A fuller description of the training image dataset, how it was constructed, and statistical moments can be found in `TrainingImageData.md`. We scrape Google Images to create our training image dataset of passenger vehicles (including coupes, sedans, hatchbacks, SUVs, convertibles, wagons, vans, and pickups), which is representative of foreign and domestic vehicles sold in the U.S. market in 2000-2022. This does not include exotic vehicles or heavy-duty work vehicles. We obtained this list of vehicles sold in the U.S. during this period from the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles sold in the U.S. in recent decades.
+
+## Manufacturers in data
+We make several sample restrictions (see `TrainingImageData.md`), yielding the following 40 manufacturers and 574 distinct make-models as our final analytic training set.
 
 | Manufacturer | Years in Database | Number of Models |
 | --------- | ----- | ------- |
@@ -55,40 +64,8 @@ This code develops a large (n=664,678) dataset of contemporary passenger motor v
 | Volvo | 2000-2021 | 16
 | smart | 2008-2018 | 1
 
-- To reduce the number of detailed vehicle make-model combinations, related  models are combined together (e.g. Ford F-150 Super Cab and Ford F350 Super Duty Crew Cab are combined into a single Ford F-Series category) using the script at `./create_training_images/restrict_population_make_models.py`. This reduced the number of unique make-model combinations over the period to **574**. 
-<br> <br />
-- The restricted vehicle database is stored at `./data/make_model_database_mod.csv` with a corresponding analysis of this database in `./create_training_images/back4app_database_analysis.ipynb`. A full list of these 574 make-model classes can be seen by scrolling down.
-
-#### Sampling method
-- Having defined the population of vehicles of interest, we scrape Google Images to download images that will be used as our training dataset. To capture sufficient variation *within* each vehicle make-model combination over time we scrape images using the detailed vehicle model descriptor, combined with the vehicle category (e.g. coupe, sedan, hatchback, SUV, comvertible, wagon, van, pickup), for every year available. In told, this produced 8,274 unique make-(detailed-)model-category-year combinations.
-<br> <br />
-- For every make-(detailed-)model-category-year combination, we scrape 100 images, which typically results in 85-90 savable JPG images. We store these data in separate directories on disk based on make-(aggregated-)model-year. In each directory, approximately 95% of saved images are exterior vehicle photographs with the vast majority corresponding to the correct vehicle make, model and year. 
-
-#### Sample restrictions
-- A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 664,678 total images were scraped for all 574 make-model classes over the period. Of these, 631,973 (95.08%) images were identified as having a vehicle object in them, according to the YOLOv5 (XL) algorithm. 
- <br> <br />
-- To ensure fidelity of our resulting vehicles images and bounding box coordinates (for cropping), we restrict to bounding box coordinates from the YOLOv5 XL model with a confidence >= 0.5 (609,265 images; 91.66%). If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. In the next section we present a kernel density plot of the distribution of YOLOv5 XL confidence levels in our training data.
-  - We considerably examined the impact of YOLOv5 model confidence level on vehicle classifier performance and found a weak correlation. While the particular YOLOv5 model selected (e.g. small/medium/large/XL) affected classifier performance by about +/- 3 percentage points, varying the level of confidence for the same YOLOv5 model did not greatly affect the classifier.
-  <br> <br />
-- To ensure our training set contains adequately-sized images, we further restrict to images whose bounding boxes are > 1st percentile of pixel area, which reduced the total image count to 603,899 (90.86% of original images). The 1st percentile corresponded to 8,911 pixels, or approximately a 94 x 94 pixel image, which is comparably small. 
-  - Auxiliary analyses indicated that increasing this minimum object size threshold did not appreciably enhance model performance, while also reducing the number of sample images.
-  <br> <br />
-- In the notebook at `./create_training_images/compare_yolov5_models.ipynb` we examine the distributons of confidence and bounding box area across the YOLOv5 small, medium, large, and XL models. 
-
-## Descriptives
-- A kernel density plot of YOLOv5 XL bounding box confidence.
-<br />
-
-![kde_bb_confidence](./create_training_images/kdeplot_yolo_confidence.png)
-
-- The empirical cumulative distribution function (ECDF) of bound box area from the YOLOv5 XL model.
-<br />
-
-![ECDF_Bbox](./create_training_images/ecdf_bounding_box_area.png)
-
-- In supplementary analyses we imposed restrictions on the minimum image count per class, meaning make-model classes below this threshold were excluded from training and evaluation. This, however, had little impact on model performance; correspondingly, we include all 574 classes in our final model.
-<br> <br />
-- The table and figure below display key statistical moments and the distribution in the number of images per class, respectively, net of our analytic restrictions.
+## Number of images per make-model
+The table below describes the distribution of training images per class in our final analytic sample.
 
 | Statistic | Value |
 | --------- | ----- |
@@ -105,31 +82,6 @@ This code develops a large (n=664,678) dataset of contemporary passenger motor v
 | 95%       | 7821.00 |
 | max       | 7821.00 |
 
-<br />
-
-![ECDF_img_count](./create_training_images/ecdf_img_count.png)
-
-
-
-- The following figure illustrates the final number of images per make-model class in our resulting training data, net of analytic restrictions.
-<br> <br />
-
-![test](./create_training_images/final_img_count_class.png)
-
-
-# Pipeline to Collect Training Images
-
-The following scripts were run in this order to create the sample of training images:
-
-  1) `./create_training_images/get_make_model_db.py`, which queries the back4app database, outputting -> `./data/make_model_database.csv`.
-<br> <br />
-  2) `./create_training_images/restrict_population_make_models.py`, which standardizes and fixes some errors in vehicle makes and models, outputting -> `./data/make_model_database_mod.csv`.
-<br> <br />
-  3) `./create_training_images/scrape_vehicle_make_models.py`, which scrapes Google Images for each detailed make-model-year combination.
-<br> <br />
-  4) `./create_training_images/create_image_directory.py`, which ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. This outputs -> `./data/MakeModelDirectory.csv`.
-<br> <br />
-  5) `./create_training_images/yolov5_vehicle_bboxes.py`, which classifies objects in images using [YOLOv5](https://github.com/ultralytics/yolov5). This outputs -> `./data/Bboxes.csv`.
 
 # Pipeline to Train the Make-Model Classifier
 We develop code locally on our local laptop and upload updated scripts to the GPU cluster to execute code. To upload the scripts that run the make-model classifier, `MakeModelClassifier.py` and `core.py`, along with the image directory `./data/Bboxes.csv` enter in your console:
