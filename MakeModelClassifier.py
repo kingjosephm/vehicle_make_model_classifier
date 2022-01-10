@@ -22,7 +22,7 @@ import tf2onnx
 class MakeModelClassifier(ClassifierCore):
     def __init__(self, config):
         super().__init__(config)
-        self.df, self.label_mapping = super().read_dataframe(self.config['img_df'],
+        self.df, self.label_mapping = super().read_dataframe(self.config['img_registry'],
                                                              min_class_img_count=self.config['min_class_img_count'],
                                                              pixel_dilation=self.config['pixel_dilation'],
                                                              train_mode=self.config['train'],
@@ -291,7 +291,7 @@ def make_fig(train: pd.Series, val: pd.Series, output_path: str, loss: bool =Tru
 def parse_opt():
     parser = argparse.ArgumentParser()
     # Apply to train or predict modes
-    parser.add_argument('--img-df', default='./scripts/Bboxes.csv', type=str, help='path to dataframe containing relative image paths and labels', required='--predict' in sys.argv)
+    parser.add_argument('--img-registry', default='./scripts/Bboxes.csv', type=str, help='path to dataframe containing relative image paths and labels', required='--predict' in sys.argv)
     parser.add_argument('--data', type=str, default='./data/scraped_images', help='path to root directory where scraped vehicle images stored')
     parser.add_argument('--output', type=str, help='path to output results', required=True)
     parser.add_argument('--img-size', type=tuple, default=(224, 224), help='image size h,w')
