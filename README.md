@@ -14,6 +14,9 @@
 - [Vehicle make-model classifier](#vehicle-make-model-classifier)
 - [Data](#data)
     - [Training data](#training-data)
+      - [Manufacturers in data](#manufacturers-in-data)
+      - [How classes are defined](#how-classes-are-defined)
+      - [Distribution of images per class](#distribution-of-images-per-class)
     - [Test data](#test-data)
 - [Data labels](#data-labels)
 - [Results: Best performing model](#results-best-performing-model)
@@ -243,7 +246,18 @@ We make several sample restrictions (see `TrainingImageData.md`), yielding the f
 | Volvo | 2000-2021 | 16
 | smart | 2008-2018 | 1
 
-### Number of images per make-model class
+### How classes are defined
+We define a class as a string concatenation of make and model. This entails pooling all years a particular make-model was manufactured. Alternatively, we could treat each make-model-year a distinct class. We opted for the former for several reasons. 
+
+1. Concatenating the year dimension would drastically increase the number of classes for the model to predict, from 574 to 5,287
+<br> </br>
+2. This would require significantly more data to ensure adequate image counts per class
+<br> </br>
+3. On the one hand, variation *within* make-models over time due to generational updates may degrade predictions. On the other, however, this may pale in comparison to differences *between* make-models. [Multivariate regression analyses](https://github.boozallencsn.com/MERGEN/vehicle_make_model_classifier/blob/main/results/TestSetAnalysis.ipynb) of a holdout set from our training images suggest the number of distinct years per make-model is not significantly related to differences in the F1-score, suggesting pooling years does not harm performance
+
+Another more promising strategy would be to group make-models into vehicle generations. We looked into this possibility; however, we found no readily-available datasets containing this information. Given the project timeline and budget, we decided against this.
+
+### Distribution of images per class
 The table below describes the distribution of training images per class in our final analytic sample.
 
 | Statistic | Value |
@@ -260,17 +274,6 @@ The table below describes the distribution of training images per class in our f
 | 90%       | 1908.40 |
 | 95%       | 7821.00 |
 | max       | 7821.00 |
-
-### Why not define classes as make-model-year?
-We pool all years a particular make-model was manufactured, yielding *one class per make-model*. Alternatively, we could treat each make-model-year as a separate class. We opted for the former for several reasons. 
-
-1. Concatenating the year dimension would drastically increase the number of classes for the model to predict, from 574 to 5,287
-<br> </br>
-2. This would require significantly more data to ensure adequate image counts per class
-<br> </br>
-3. On the one hand, variation *within* make-models over time due to generational updates may degrade predictions. On the other, however, this may pale in comparison to differences *between* make-models. [Multivariate regression analyses](https://github.boozallencsn.com/MERGEN/vehicle_make_model_classifier/blob/main/results/TestSetAnalysis.ipynb) of a holdout set from our training images suggest the number of distinct years per make-model is not significantly related to differences in the F1-score, suggesting pooling years does not harm performance
-
-Another more promising strategy would be to group make-models into vehicle generations. We looked into this possibility; however, we found no readily-available datasets containing this information. Given the project timeline and budget, we decided against this.
 
 ## Test data
 We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) as our primary test set. These data are stored in the MERGEN OneDrive Data folder in `stanford_car_data.zip` and were downloaded from Kaggle.com. Originally containing 16,185 images on 196 make-model classes spanning 2001-2012, we restrict to overlapping vehicle make-models with our training set. Net of these restrictions, this left us with 124 distinct classes and  12,596 test images.

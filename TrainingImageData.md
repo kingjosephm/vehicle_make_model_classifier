@@ -1,5 +1,14 @@
-# Training Image Data
-The following offers a detailed explanation of how the training image dataset was constructed and some statistical moments of this dataset.
+# Table of contents
+- [Dataset construction](#dataset-contruction)
+  - [Sampling frame](#sampling-frame)
+  - [Manufacturers in data](#manufacturers-in-data)
+  - [Sampling method](#sampling-method)
+  - [Analytic restrictions](#analytic-restrictions)
+- [Pipeline to create training image dataset](#pipeline-to-create-training-image-dataset)
+- [Analytic sample descriptive statistics](#analytic-sample-descriptive-statistics)
+  - [Distribution of images per class](#distribution-of-images-per-class)
+  - [Images per make-model](#images-per-make-model)
+
 
 ## Dataset construction
 #### Sampling frame
@@ -10,6 +19,8 @@ The following offers a detailed explanation of how the training image dataset wa
 - We drop 4 small vehicle manufacturers (e.g. Fisker, Polestar, Panoz, Rivian), 8 exotic car manufacturers (e.g. Ferrari, Lamborghini, Maserati, Rolls-Royce, McLaren, Bentley, Aston Martin, Lotus), and 7 brands with sparse information in the dataset (e.g. Alfa Romeo, Daewoo, Isuzu, Genesis, Mayback, Plymouth, Oldsmobile), reducing the number of distinct vehicle manufacturers in the data to 40. 
 <br> <br />
 - The resulting 40 manufacturers, their years present in the database, and the number of aggregated models per manufacturer in the database (see description below) are displayed in the following table.
+
+### Manufacturers in data
 
 | Manufacturer | Years in Database | Number of Models |
 | --------- | ----- | ------- |
@@ -58,12 +69,12 @@ The following offers a detailed explanation of how the training image dataset wa
 <br> <br />
 - The restricted vehicle database is stored at `./data/make_model_database_mod.csv` with a corresponding analysis of this database in `./create_training_images/back4app_database_analysis.ipynb`. A full list of these 574 make-model classes can be seen by scrolling down.
 
-#### Sampling method
+### Sampling method
 - Having defined the population of vehicles of interest, we scrape Google Images to download images that will be used as our training dataset. To capture sufficient variation *within* each vehicle make-model combination over time we scrape images using the detailed vehicle model descriptor, combined with the vehicle category (e.g. coupe, sedan, hatchback, SUV, convertible, wagon, van, pickup), for every year available. In told, this produced 8,274 unique make-(detailed-)model-category-year combinations.
 <br> <br />
 - For every make-(detailed-)model-category-year combination, we scrape 100 images, which typically results in 85-90 savable JPG images. We store these data in separate directories on disk based on make-(aggregated-)model-year. In each directory, approximately 95% of saved images are exterior vehicle photographs with the vast majority corresponding to the correct vehicle make, model and year. 
 
-#### Sample restrictions
+### Analytic restrictions
 - A full analysis of the scraped image dataset in the notebook at `./create_training_images/scraped_image_analysis.ipynb`. 664,678 total images were scraped for all 574 make-model classes over the period. Of these, 631,973 (95.08%) images were identified as having a vehicle object in them, according to the YOLOv5 (XL) algorithm. 
  <br> <br />
 - To ensure fidelity of our resulting vehicles images and bounding box coordinates (for cropping), we restrict to bounding box coordinates from the YOLOv5 XL model with a confidence >= 0.5 (609,265 images; 91.66%). If multiple such images are identified in a particular image, we keep the one with the largest bounding box area. In the next section we present a kernel density plot of the distribution of YOLOv5 XL confidence levels in our training data.
@@ -74,21 +85,35 @@ The following offers a detailed explanation of how the training image dataset wa
   <br> <br />
 - In the notebook at `./create_training_images/compare_yolov5_models.ipynb` we examine the distributons of confidence and bounding box area across the YOLOv5 small, medium, large, and XL models. 
 
-## Descriptives
-- A kernel density plot of YOLOv5 XL bounding box confidence.
-<br />
+
+# Pipeline to create training image dataset
+
+The following scripts were run in this order to create the sample of training images:
+
+  1) `./create_training_images/get_make_model_db.py`: queries the back4app database, outputting `./create_training_images/data/make_model_database.csv`
+<br> <br />
+  2) `./create_training_images/restrict_population_make_models.py`: standardizes and fixes some errors in vehicle makes and models, outputting `./create_training_images/data/make_model_database_mod.csv`
+<br> <br />
+  3) `./create_training_images/scrape_vehicle_make_models.py`: scrapes Google Images for each detailed make-model-year combination
+<br> <br />
+  4) `./create_training_images/create_image_directory.py`: ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. Outputs image registry
+<br> <br />
+  5) `./create_training_images/yolov5_vehicle_bboxes.py`: detects objects in images using [YOLOv5](https://github.com/ultralytics/yolov5) algorithm
+
+
+# Analytic sample descriptive statistics
+
+### Kernel density plot of YOLOv5 XL bounding box confidence
 
 ![kde_bb_confidence](create_training_images/figs/kdeplot_yolo_confidence.png)
 
-- The empirical cumulative distribution function (ECDF) of bound box area from the YOLOv5 XL model.
-<br />
+### Empirical cumulative distribution function (ECDF) of bound box area from the YOLOv5 XL model
 
 ![ECDF_Bbox](create_training_images/figs/ecdf_bounding_box_area.png)
 
-- In supplementary analyses we imposed restrictions on the minimum image count per class, meaning make-model classes below this threshold were excluded from training and evaluation. This, however, had little impact on model performance; correspondingly, we include all 574 classes in our final model.
-<br> <br />
-- The table and figure below display key statistical moments and the distribution in the number of images per class, respectively, net of our analytic restrictions.
+In supplementary analyses we imposed restrictions on the minimum image count per class, meaning make-model classes below this threshold were excluded from training and evaluation. This, however, had little impact on model performance; correspondingly, we include all 574 classes in our final model.
 
+### Distribution of images per class
 | Statistic | Value |
 | --------- | ----- |
 | Classes   | 574   |
@@ -104,28 +129,8 @@ The following offers a detailed explanation of how the training image dataset wa
 | 95%       | 7821.00 |
 | max       | 7821.00 |
 
-<br />
-
+### ECDF of image count
 ![ECDF_img_count](create_training_images/figs/ecdf_img_count.png)
 
-
-
-- The following figure illustrates the final number of images per make-model class in our resulting training data, net of analytic restrictions.
-<br> <br />
-
+### Images per make-model
 ![test](create_training_images/figs/final_img_count_class.png)
-
-
-# Pipeline to Collect Training Images
-
-The following scripts were run in this order to create the sample of training images:
-
-  1) `./create_training_images/get_make_model_db.py`, which queries the back4app database, outputting -> `./data/make_model_database.csv`.
-<br> <br />
-  2) `./create_training_images/restrict_population_make_models.py`, which standardizes and fixes some errors in vehicle makes and models, outputting -> `./data/make_model_database_mod.csv`.
-<br> <br />
-  3) `./create_training_images/scrape_vehicle_make_models.py`, which scrapes Google Images for each detailed make-model-year combination.
-<br> <br />
-  4) `./create_training_images/create_image_directory.py`, which ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. This outputs -> `./data/MakeModelDirectory.csv`.
-<br> <br />
-  5) `./create_training_images/yolov5_vehicle_bboxes.py`, which classifies objects in images using [YOLOv5](https://github.com/ultralytics/yolov5). This outputs -> `./data/Bboxes.csv`.
