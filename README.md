@@ -10,10 +10,12 @@ We train our vehicle make-model classifier using a large (n=664,678) dataset of 
 - `combine_stanford_vmmr`: older branch that merged vehicle images from the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) with the [VMMR database](https://github.com/faezetta/VMMRdb). Because of the size and questionable representativeness of these datasets, we opted to create our own image dataset
 - `tf_distributed`: older branch in which we distributed training of the TensorFlow Keras model across GPUs. For simplicity we opted for training on one GPU
 
+
 # Vehicle make-model classifier
 Compared to object detection, interest and research in vehicle classification lags significantly. Several small-scale research projects can be found via Google (e.g. [example 1](https://towardsdatascience.com/car-model-classification-e1ff09573f4f), [example 2](https://medium.com/@sridatta0808/deep-learning-based-vehicle-make-model-mmr-classification-on-carconnection-dataset-9bc93997041f)) and at least [one company](http://spectrico.com/car-make-model-recognition.html) offers commercial products. Based in part on the former research projects, we opted to build our own vehicle make-model classifier as this enabled us to customize to our particular need.
 
 We use a pretrained Tensorflow Keras [ResNet50v2](https://arxiv.org/abs/1603.05027) layer, which was trained using [ImageNet](https://www.image-net.org/), a large open-source image dataset consisting of 1,000+ distinct classes. We remove the top output layer of ResNet50v2, substituting this with our own trainable layers (described below). We also conducted several experiments varying, among other things, the pretrained layer and top model architecture (described below).
+
 
 # Data
 ## Training data
@@ -90,7 +92,7 @@ We pool all years a particular make-model was manufactured, yielding *one class 
 
 1. Concatenating the year dimension would drastically increase the number of classes for the model to predict, from 574 to 5,287
 <br> </br>
-2. This would require significantly more data to ensure adequate image counts
+2. This would require significantly more data to ensure adequate image counts per class
 <br> </br>
 3. On the one hand, variation *within* make-models over time due to generational updates may degrade predictions. On the other, however, this may pale in comparison to differences *between* make-models. [Multivariate regression analyses](https://github.boozallencsn.com/MERGEN/vehicle_make_model_classifier/blob/main/results/TestSetAnalysis.ipynb) of a holdout set from our training images suggest the number of distinct years per make-model is not significantly related to differences in the F1-score, suggesting pooling years does not harm performance
 
@@ -101,18 +103,20 @@ We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford
 
 Our second test set is a small (1,820) image dataset of matched thermal and visible images with hand-curated make-model classes. These data were collected by Booz Allen employees around several parking lots in the DC-Maryland-Virginia area. Unfortunately, they only contain 11 make-models that overlap with our training data. These data can be found in the MERGEN OneDrive Data folder in `Thermal-Visible Make-Model Test Images.zip`.
 
+
 # Data labels
 Make-model labels are built into the nested make->model->year directory structure of our training set. Rather than directly using this directory structure, we create a **CSV file containing the relative path to each image along with its label**. We call this dataframe the **image registry** or `img-registry`. We also use this CSV file to hold the YOLOv5 bounding box coordinates for each image. Using this external CSV allows us to generate bounding boxes once ahead of time and save them, rather than generating them on-the-fly each time an image enters the make-model classifier pipeline.
 
-Labels and bounding box coordinates are contained in the following CSVs:
+### Labels and bounding box info:
 - `./image_registries/Bboxes.csv`: training set
 - `./image_registries/Stanford_Bboxes_xl.csv`: Stanford dataset
 - `./image_registries/Bboxes_xl_test_thermal.csv`: thermal test images
   - `./image_registries/Bboxes_xl_test_visible.csv`: matched visible test images 
 
+
 # Code structure
-This branch [main] contains the following scripts:
-- `MakeModelClassifier.py`: contains methods for the MakeModelClass subclass. Primary script used to train the make-model classifier or make predictions using weights from this model
+### Root dir:
+- `MakeModelClassifier.py`: methods for the MakeModelClass subclass. Primary script used to train the make-model classifier or make predictions using weights from this model
 - `core.py`: abstract base class (ABC) superclass containing core methods used by `MakeModelClassifier.py`
 - `README.md`: this script, explains the branch of this repository
 - `TrainingImageData.md`: fuller explanation of training data
@@ -120,9 +124,35 @@ This branch [main] contains the following scripts:
 - `driver.sh`: shell script to automate the uploading of other scripts in this branch to the GPU cluster
 - `requirements.txt`: contains full list of all dependencies used to implement this code
 
-Scripts to curate our two test sets and generate labels are found in:
-- `./create_test_images/curate_stanford_img_dir.py`: curates the Stanford cars dataset
-- `./create_test_images/curate_thermal_img_dir.py`: curates the thermal image dataset
+### Scripts to curate test sets:
+- `./create_test_images/curate_stanford_img_dir.py`: curates the Stanford cars dataset, generating image directory
+- `./create_test_images/curate_thermal_img_dir.py`: curates the thermal image dataset, generating image directory
+
+### Scripts and notebooks for training set:
+- `./create_training_images/get_make_model_db.py`: queries the back4app database, outputting `./create_training_images/data/make_model_database.csv` <br> </br>
+
+- `./create_training_images/restrict_population_make_models.py`: standardizes and fixes some errors in vehicle makes and models, outputting `./create_training_images/data/make_model_database_mod.csv` <br> </br>
+
+- `./create_training_images/scrape_vehicle_make_models.py`: scrapes Google Images for each detailed make-model-year combination <br> </br>
+
+- `./create_training_images/create_image_directory.py`: ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. Outputs image registry <br> </br>
+
+- `./create_training_images/yolov5_vehicle_bboxes.py`: detects objects in images using [YOLOv5](https://github.com/ultralytics/yolov5) algorithm <br> </br>
+
+- `./create_training_images/analysis/back4app_database_analysis.ipynb`: Notebook examining list of vehicle makes and models in [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database <br> </br>
+
+- `./create_training_images/analyses/scraped_image_analysis.ipynb`: Examines distributions of scraped images
+
+### Results
+- `./results/TestSetAnalysis.ipynb`: Examines model performance by make-model class using a holdout set from our training images <br> </br>
+
+***TODO REST***
+
+### Tests
+- `./tests/onnx_keras_weights.ipynb`: performs formal statistical test that softmax probabilities output by original TensorFlow Keras model are very close to Onnx weights
+
+### YOLOv5
+This is a Git submodule for the [YOLOv5](https://github.com/ultralytics/yolov5) repository
 
 # Pipeline to Train the Make-Model Classifier
 We develop code locally on our local laptop and upload updated scripts to the GPU cluster to execute code. To upload the scripts that run the make-model classifier, `MakeModelClassifier.py` and `core.py`, along with the image directory `./data/Bboxes.csv` enter in your console:
@@ -186,8 +216,8 @@ These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs a
 - Minimum training images per class: 0
 - Total classes: 574
 
-![accuracy](./results/Accuracy.png)
-![loss](./results/Loss.png)
+![accuracy](results/best_model_figs/Accuracy.png)
+![loss](results/best_model_figs/Loss.png)
 
 
 - A more extensive analysis of performance in the test set can be viewed in the notebook at `./results/TestSetAnalysis.ipynb`.
@@ -216,11 +246,11 @@ All models trained using the Adam optimizer, a learning rate of 0.0001, max epoc
 ** xl YOLOv5 model trained using a minimum bounding box area of 8,911 pixels (1st percentile) and minimum confidence of 0.50 <br>
 <br> <br />
 
-![CMC Curve](./results/cmc_curve_5.png)
+![CMC Curve](results/best_model_figs/cmc_curve_5.png)
 <br> <br />
-![CMC Curve 50](./results/cmc_curve_50.png)
+![CMC Curve 50](results/best_model_figs/cmc_curve_50.png)
 <br> <br />
-![Sensitivity](./results/sensitivity_bar.png)
+![Sensitivity](results/best_model_figs/sensitivity_bar.png)
 
 ### External validity
 We employ a second set of test images from the [Stanford car dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) to evaluate the generalizability of our model. This dataset contains 16,185 images and 196 classes, though only 124 classes overlap with our scraped images. The Stanford images are likewise dated, with the newest make-model being from 2012. Nonetheless, our model performs comparably with these data as with an unseen test subset from our original data (see table above). The CSV image dataframe for these data was curated via `./create_test_images/curate_stanford_img_dir.py`. The YOLOv5 model used for these data are the same as that indicated by the "YOLOv5 Model" column in the table above.
