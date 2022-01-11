@@ -3,7 +3,7 @@ The code in this repository develops a computer vision model to classify passeng
 
 This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to the [trained cGAN model for conversion to the visible spectrum](https://github.boozallencsn.com/MERGEN/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
 
-We train our vehicle make-model classifier using a large (n=664,678) dataset of 40 passenger vehicle manufacturers and 574 distinct make-models.
+We train our vehicle make-model classifier using a large (n=664,678) dataset of 40 passenger vehicle manufacturers and 574 distinct make-model classes.
 
 # Repository branches
 - `main` **[this branch]**: code to create our training dataset as well as code to create and train make-model classifier model
@@ -16,9 +16,12 @@ Compared to object detection, interest and research in vehicle classification la
 We use a pretrained Tensorflow Keras [ResNet50v2](https://arxiv.org/abs/1603.05027) layer, which was trained using [ImageNet](https://www.image-net.org/), a large open-source image dataset consisting of 1,000+ distinct classes. We remove the top output layer of ResNet50v2, substituting this with our own trainable layers (described below). We also conducted several experiments varying, among other things, the pretrained layer and top model architecture (described below).
 
 # Data
+## Training data
 A fuller description of the training image dataset, how it was constructed, and statistical moments can be found in `TrainingImageData.md`. We scrape Google Images to create our training image dataset of passenger vehicles (including coupes, sedans, hatchbacks, SUVs, convertibles, wagons, vans, and pickups), which is representative of foreign and domestic vehicles sold in the U.S. market in 2000-2022. This does not include exotic vehicles or heavy-duty work vehicles. We obtained this list of vehicles sold in the U.S. during this period from the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles sold in the U.S. in recent decades.
 
-## Manufacturers in data
+These data are stored in the MERGEN OneDrive Data folder in `scraped_images.zip`.
+
+### Manufacturers in data
 We make several sample restrictions (see `TrainingImageData.md`), yielding the following 40 manufacturers and 574 distinct make-models as our final analytic training set.
 
 | Manufacturer | Years in Database | Number of Models |
@@ -64,7 +67,7 @@ We make several sample restrictions (see `TrainingImageData.md`), yielding the f
 | Volvo | 2000-2021 | 16
 | smart | 2008-2018 | 1
 
-## Number of images per make-model
+### Number of images per make-model class
 The table below describes the distribution of training images per class in our final analytic sample.
 
 | Statistic | Value |
@@ -82,6 +85,44 @@ The table below describes the distribution of training images per class in our f
 | 95%       | 7821.00 |
 | max       | 7821.00 |
 
+### Why not define classes as make-model-year?
+We pool all years a particular make-model was manufactured, yielding *one class per make-model*. Alternatively, we could treat each make-model-year as a separate class. We opted for the former for several reasons. 
+
+1. Concatenating the year dimension would drastically increase the number of classes for the model to predict, from 574 to 5,287
+<br> </br>
+2. This would require significantly more data to ensure adequate image counts
+<br> </br>
+3. On the one hand, variation *within* make-models over time due to generational updates may degrade predictions. On the other, however, this may pale in comparison to differences *between* make-models. [Multivariate regression analyses](https://github.boozallencsn.com/MERGEN/vehicle_make_model_classifier/blob/main/results/TestSetAnalysis.ipynb) of a holdout set from our training images suggest the number of distinct years per make-model is not significantly related to differences in the F1-score, suggesting pooling years does not harm performance
+
+Another more promising strategy would be to group make-models into vehicle generations. We looked into this possibility; however, we found no readily-available datasets containing this information. Given the project timeline and budget, we decided against this.
+
+## Test data
+We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) as our primary test set. These data are stored in the MERGEN OneDrive Data folder in `stanford_car_data.zip` and were downloaded from Kaggle.com. Originally containing 16,185 images on 196 make-model classes spanning 2001-2012, we restrict to overlapping vehicle make-models with our training set. Net of these restrictions, this left us with 124 distinct classes and  12,596 test images.
+
+Our second test set is a small (1,820) image dataset of matched thermal and visible images with hand-curated make-model classes. These data were collected by Booz Allen employees around several parking lots in the DC-Maryland-Virginia area. Unfortunately, they only contain 11 make-models that overlap with our training data. These data can be found in the MERGEN OneDrive Data folder in `Thermal-Visible Make-Model Test Images.zip`.
+
+# Data labels
+Make-model labels are built into the nested make->model->year directory structure of our training set. Rather than directly using this directory structure, we create a **CSV file containing the relative path to each image along with its label**. We call this dataframe the **image registry** or `img-registry`. We also use this CSV file to hold the YOLOv5 bounding box coordinates for each image. Using this external CSV allows us to generate bounding boxes once ahead of time and save them, rather than generating them on-the-fly each time an image enters the make-model classifier pipeline.
+
+Labels and bounding box coordinates are contained in the following CSVs:
+- `./image_registries/Bboxes.csv`: training set
+- `./image_registries/Stanford_Bboxes_xl.csv`: Stanford dataset
+- `./image_registries/Bboxes_xl_test_thermal.csv`: thermal test images
+  - `./image_registries/Bboxes_xl_test_visible.csv`: matched visible test images 
+
+# Code structure
+This branch [main] contains the following scripts:
+- `MakeModelClassifier.py`: contains methods for the MakeModelClass subclass. Primary script used to train the make-model classifier or make predictions using weights from this model
+- `core.py`: abstract base class (ABC) superclass containing core methods used by `MakeModelClassifier.py`
+- `README.md`: this script, explains the branch of this repository
+- `TrainingImageData.md`: fuller explanation of training data
+- `Docker_Linux_HELPME.md`: useful common commands for Docker and Linux
+- `driver.sh`: shell script to automate the uploading of other scripts in this branch to the GPU cluster
+- `requirements.txt`: contains full list of all dependencies used to implement this code
+
+Scripts to curate our two test sets and generate labels are found in:
+- `./create_test_images/curate_stanford_img_dir.py`: curates the Stanford cars dataset
+- `./create_test_images/curate_thermal_img_dir.py`: curates the thermal image dataset
 
 # Pipeline to Train the Make-Model Classifier
 We develop code locally on our local laptop and upload updated scripts to the GPU cluster to execute code. To upload the scripts that run the make-model classifier, `MakeModelClassifier.py` and `core.py`, along with the image directory `./data/Bboxes.csv` enter in your console:
