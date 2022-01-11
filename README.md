@@ -1,9 +1,31 @@
+# Table of contents
+
+- [Introduction](#introduction)
+- [Quick Start](#quick-start)
+    - [Requirements](#requirements)
+    - [Getting started](#getting-started)
+- [Running the code](#running-the-code)
+    - [Training](#training)
+    - [Predict](#predict)
+- [Code Structure](#code-structure)
+- [GPU cluster](#gpu-cluster)
+- [Docker](#docker)
+- [Run model using Docker](#run-model-using-docker)
+- [Vehicle make-model classifier](#vehicle-make-model-classifier)
+- [Data](#data)
+    - [Training data](#training-data)
+    - [Test data](#test-data)
+- [Data labels](#data-labels)
+- [Results: Best performing model](#results-best-performing-model)
+    - [Summary of experiments](#summary-of-experiments)
+
 # Introduction
 The code in this repository develops a TensorFlow Keras computer vision model to classify passenger vehicle makes (i.e. manufacturer) and models. 
 
 This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to the [trained cGAN model for conversion to the visible spectrum](https://github.boozallencsn.com/MERGEN/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
 
 We train our vehicle make-model classifier using a large (n=664,678) dataset of 40 passenger vehicle manufacturers and 574 distinct make-model classes.
+
 
 # Quick start
 ### Requirements
@@ -60,7 +82,6 @@ Upon execution the script creates a new directory in the output location formatt
 <sup>*See script for options. Options and requirements differ for train and predict modes
 
 In predict mode, the script creates the `logs` subdirectory and all files as above except: `metrics.csv`, `Log.txt`, and `model_structure*.png`.
-
 
 
 # Code structure
