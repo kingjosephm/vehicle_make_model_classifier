@@ -1,5 +1,5 @@
 # Introduction
-The code in this repository develops a computer vision model to classify passenger vehicle makes (i.e. manufacturer) and models. 
+The code in this repository develops a TensorFlow Keras computer vision model to classify passenger vehicle makes (i.e. manufacturer) and models. 
 
 This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to the [trained cGAN model for conversion to the visible spectrum](https://github.boozallencsn.com/MERGEN/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
 
@@ -250,10 +250,9 @@ To run the classifier using an ResNet50 layer, for example, in a detached Docker
 - `python3`: specifies the container should be instantated using Python. To instead instantiate using Bash enter `/bin/bash` or omit entirely (this is the default for this Docker image). Note - the software available in a container depends on the container image
 - `./scripts/MakeModelClassifier.py --train --data=/data --img-registry=/scripts/Bboxes.csv --epochs=130 --output=/output --logging='true' --save-weights='true' --dropout=0.25 --patience=10 --batch-size=256 --units2=4096 --units1=2048 --model='resnet' --resnet-size='50' --min-class-img-count=0 --learning-rate=0.0001 --optimizer='adam'`: instructs the container to train the model with the supplied arguments. If this is omitted the container will simply instantiate with the default or supplied program (i.e. Python or Bash) and await input
 
-# Results
-### Best performing model
+# Results: Best performing model
+### Model parameters
 
-- Framework: TensorFlow Keras
 - Optimizer: Adam
 - YOLOv5 XL
 - YOLOv5 minimum confidence threshold: 0.50
@@ -270,13 +269,15 @@ To run the classifier using an ResNet50 layer, for example, in a detached Docker
 - Minimum training images per class: 0
 - Total classes: 574
 
+### Categorical accuracy by epoch
 ![accuracy](results/best_model_figs/Accuracy.png)
+### Categorical cross-entropy loss by epoch
 ![loss](results/best_model_figs/Loss.png)
 
+Note: A more extensive analysis of performance in the test set can be viewed in the notebook at `./results/TestSetAnalysis.ipynb`.
 
-- A more extensive analysis of performance in the test set can be viewed in the notebook at `./results/TestSetAnalysis.ipynb`.
-<br> <br />
-- The following table contains results from a host of recent experiments to find the optimal model given our training data. In particular number 14 is our best performing model.
+### Summary of experiments
+The following table contains results from a host of recent experiments to find the optimal model given our training data. In particular, number 14 is our best performing model.
 
 | Number | Pretrained Model | # Classes | Dense Layers | Dropout Rate | YOLOv5 Model** | Test Argmax(0) | Test Argmax(0:4) | Stanford Argmax(0) | Stanford Argmax(0:4) |
 | ------ | ---------------- | --------- | ------------ | ------------ | ------------ | -------------- | ---------------- | ------------------ | -------------------- |
@@ -296,15 +297,18 @@ To run the classifier using an ResNet50 layer, for example, in a detached Docker
 |14 | ResNet50V2 | 574 | 4096 x 2048 | 0.2 | xl | 0.7067 | 0.9092 | 0.6406 | 0.8685 |
 
 All models trained using the Adam optimizer, a learning rate of 0.0001, max epochs of between 130-200 epochs with early stopping after 10 epochs, and a batch size of 256. <br> 
-** small YOLOv5 model trained using minimum bounding box area of 3,731 pixels (5th percentile) and minimum confidence of 0.5. <br>
+<sup>** small YOLOv5 model trained using minimum bounding box area of 3,731 pixels (5th percentile) and minimum confidence of 0.50 <br>
 ** xl YOLOv5 model trained using a minimum bounding box area of 8,911 pixels (1st percentile) and minimum confidence of 0.50 <br>
-<br> <br />
 
+
+### Cumulative matching characteristic curve top 5
 ![CMC Curve](results/best_model_figs/cmc_curve_5.png)
-<br> <br />
+
+### Cumulative matching characteristic curve top 50
 ![CMC Curve 50](results/best_model_figs/cmc_curve_50.png)
-<br> <br />
+
+### 50 best and worst classified classes
 ![Sensitivity](results/best_model_figs/sensitivity_bar.png)
 
-### External validity
-We employ a second set of test images from the [Stanford car dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) to evaluate the generalizability of our model. This dataset contains 16,185 images and 196 classes, though only 124 classes overlap with our scraped images. The Stanford images are likewise dated, with the newest make-model being from 2012. Nonetheless, our model performs comparably with these data as with an unseen test subset from our original data (see table above). The CSV image dataframe for these data was curated via `./create_test_images/curate_stanford_img_dir.py`. The YOLOv5 model used for these data are the same as that indicated by the "YOLOv5 Model" column in the table above.
+### Test set performance: using [Stanford car dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset)
+![Stanford CMC](./results/best_model_figs/Stanford_cmc_curve_5.png)
