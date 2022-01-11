@@ -129,24 +129,24 @@ Make-model labels are built into the nested make->model->year directory structur
 - `./create_test_images/curate_thermal_img_dir.py`: curates the thermal image dataset, generating image directory
 
 ### Scripts and notebooks for training set:
-- `./create_training_images/get_make_model_db.py`: queries the back4app database, outputting `./create_training_images/data/make_model_database.csv` <br> </br>
+- `./create_training_images/get_make_model_db.py`: queries the back4app database, outputting `./create_training_images/data/make_model_database.csv`
 
-- `./create_training_images/restrict_population_make_models.py`: standardizes and fixes some errors in vehicle makes and models, outputting `./create_training_images/data/make_model_database_mod.csv` <br> </br>
+- `./create_training_images/restrict_population_make_models.py`: standardizes and fixes some errors in vehicle makes and models, outputting `./create_training_images/data/make_model_database_mod.csv`
 
-- `./create_training_images/scrape_vehicle_make_models.py`: scrapes Google Images for each detailed make-model-year combination <br> </br>
+- `./create_training_images/scrape_vehicle_make_models.py`: scrapes Google Images for each detailed make-model-year combination
 
-- `./create_training_images/create_image_directory.py`: ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. Outputs image registry <br> </br>
+- `./create_training_images/create_image_directory.py`: ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. Outputs image registry
 
-- `./create_training_images/yolov5_vehicle_bboxes.py`: detects objects in images using [YOLOv5](https://github.com/ultralytics/yolov5) algorithm <br> </br>
+- `./create_training_images/yolov5_vehicle_bboxes.py`: detects objects in images using [YOLOv5](https://github.com/ultralytics/yolov5) algorithm
 
-- `./create_training_images/analysis/back4app_database_analysis.ipynb`: Notebook examining list of vehicle makes and models in [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database <br> </br>
+- `./create_training_images/analysis/back4app_database_analysis.ipynb`: Notebook examining list of vehicle makes and models in [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database
 
 - `./create_training_images/analyses/scraped_image_analysis.ipynb`: Examines distributions of scraped images
 
 ### Results
 - `./results/TestSetAnalysis.ipynb`: Examines model performance by make-model class using a holdout set from our training images <br> </br>
 
-***TODO REST***
+***TODO***
 
 ### Tests
 - `./tests/onnx_keras_weights.ipynb`: performs formal statistical test that softmax probabilities output by original TensorFlow Keras model are very close to Onnx weights
@@ -154,26 +154,74 @@ Make-model labels are built into the nested make->model->year directory structur
 ### YOLOv5
 This is a Git submodule for the [YOLOv5](https://github.com/ultralytics/yolov5) repository
 
-# Pipeline to Train the Make-Model Classifier
-We develop code locally on our local laptop and upload updated scripts to the GPU cluster to execute code. To upload the scripts that run the make-model classifier, `MakeModelClassifier.py` and `core.py`, along with the image directory `./data/Bboxes.csv` enter in your console:
+# Running the code
+We execute the code in Docker (see below), though focus in this section on how to call the code generally from command line. Note: this code was developed on a Mac and tested in a Linux (Docker) environment; its functionality in a PC environment is not guaranteed.
 
-    sh driver.sh
+### Training
+    python3 MakeModelClassifier.py --train --img-registry=<path> --data=<path> \
+        --output=<path> [options*]
+<sup>*See script for options. Options and requirements differ for train and predict modes
 
-Code will be copied onto the working directory for your profile on the GPU in a directory called `scripts`.
+Image paths in the `img-registry` dataframe are expected to be relative paths; these are concatenated to the root data directory supplied by `data`.
 
+Upon execution the script creates a new directory in the output location formatted as `YYYY-MM-DD-HHhmm`, corresponding to the datetime the script was initialized. Once the script is finished, the following subdirectories and files will be in the parent directory:
 
-### Data on the GPU cluster
-The training data described above are stored in a Docker volume called `MERGEN_Make_Model_data`. Images are also stored outside of Docker on the cluster at `/home/kingj/scraped_images`.
+- `figs`: categorical accuracy and categorical cross-entropy loss metrics by epoch
+- `training_checkpoints`: [only if `save-weights`=='true'] saved Keras and Onnx models from last epoch
+- `logs`: performance metrics and log file. Specifically:
+  - `confusion_matrix.csv`: multiclass confusion matrix
+  - `metrics.csv`: accuracy and loss among train and validation sets by epoch
+  - `OVR Confusion Matrix.csv`: one vs rest confusion matrix
+  - `predicted_classes.csv`: predicted classes per test observation sorted descending by softmax probability
+  - `predictions.csv`: softmax probabilities per test observation. Standard output from model.predict()
+  - `config.json`: parameters of MakeModelClassifier object when instantiated, containing training parameters
+  - `label_mapping.json`: label mapping for softmax probabilities
+  - `Log.txt`: log file. This will be continually updated during training, allowing you to view progress
+  - `cmc_curve_5.png`: cumulative matching characteristic curve of top 5 softmax probabilities
+  - `cmc_curve_50.png`: cumulative matching characteristic curve of top 50 softmax probabilities
+  - `heatmap.png`: heatmap of multiclass confusion matrix
+  - `model_structure_scaled.png`: figure illustrating model structure, scaled
+  - `model_structure.png`: figure illustrating model structure, unscaled
+  - `sensitivity_bar.png`: bar graph of 50 best and worst classified classes
+  - `sensitivity_kdeplot.png`: kernel density plot of sensitivity across all classes
 
-### Model output
-Results from running `MakeModelClassifier.py` are stored in a Docker volume called `MERGEN_Make_Model_output`.
+### Predict
+    python3 MakeModelClassifier.py --predict --img-registry=<path> --data=<path> \
+        --output=<path> [options*]
+<sup>*See script for options. Options and requirements differ for train and predict modes
 
-### CSV file to associate images with labels
-A CSV file containing paths to each JPG image, YOLOv5 bounding box coordinates, make-model class labels, and image dimensions is stored locally at `./data/Bboxes.csv`. At training time we use this CSV to link each image (a string path, in this dataframe) to its associated label and bounding box coordinates. ***We do not pre-crop images down to their YOLOv5 XL bounding box; instead, images are cropped as they are streamed in the training process***. The make-model classifier is trained using cropped cropped images, though we dilate these bounding boxes by 5px as YOLOv5 bounding boxes tend to be tightly cropped.
+In predict mode, the script creates the `logs` subdirectory and all files as above except: `metrics.csv`, `Log.txt`, and `model_structure*.png`.
 
-### Run the classifier
+# GPU cluster 
+We use Booz Allen's Westborough CSN cluster, which runs has 4 GeForce RTX 2080 Ti GPUs. The UUIDs for these GPUs, which allow runs on specific GPUs, are:
+
+- GPU 0: GPU-8121da2f-b1c3-d231-a9ab-7d6f598ba2dd
+- GPU 1: GPU-7a7c102c-5f71-a0fd-2ac0-f45a63c82dc5
+- GPU 2: GPU-0c5076b3-fe4a-0cd8-e4b7-71c2037933c0
+- GPU 3: GPU-3c51591d-cfdb-f87c-ece8-8dcfdc81e67a
+
+Training are stored on the cluster at `/home/kingj/scraped_images`. Currently, no test data are stored on the GPU server.
+
+# Docker
+We train the GAN models in a Docker container (see [this link](https://docs.docker.com/get-started/overview/) for information on Docker). Also see `Docker_Linux_HELPME.md` for useful Docker and Linux commands. Containers create separate environments from the operating system, so training data and scripts must be moved into the container. Two options exist: create a [Docker volume](https://docs.docker.com/storage/volumes/) (preferred) that persists beyond the life of the container, or mount the data/scripts when the container is instantiated. Directly-mounted data/scripts do not persist beyond the life of the container.
+
+### Data volume
+This has been removed to save HD space. To re-create this follow the instructions to create new docker volume in `Docker_Linux_HELPME.md`
+
+### Model output volume
+This has been removed to save HD space. To re-create this follow the instructions to create new empty docker volume in `Docker_Linux_HELPME.md`
+
+### Docker image
+For this code, as well as the GAN model, the following image was used:
+
+    king0759/tf2_gpu_jupyter_mpl:v3
+
+This (admittedly bloated) Docker image contains the packages listed in `requirements.txt`. Not all of the packages listed in this requirements file are strictly necessary for the code in this repository though.
+
+# Run model using Docker
 To run the classifier using an ResNet50 layer, for example, in a detached Docker container, enter:
 
+## Training example
     docker run -it \
         --name make_model_classifier \
         --rm -d \
@@ -182,19 +230,25 @@ To run the classifier using an ResNet50 layer, for example, in a detached Docker
         --mount source=MERGEN_Make_Model_output,target=/output \
         --gpus device=GPU-7a7c102c-5f71-a0fd-2ac0-f45a63c82dc5 \
         king0759/tf2_gpu_jupyter_mpl:v3 python3 ./scripts/MakeModelClassifier.py \
-        --train --data=/data --epochs=130 --output=/output --logging='true' \
-        --save-weights='true' --dropout=0.25 --patience=10 --batch-size=256 \
-        --units2=4096 --units1=2048 --model='resnet' --resnet-size='50' \
-        --min-class-img-count=0 --learning-rate=0.0001 --optimizer='adam'
+        --train --data=/data --img-registry=/scripts/Bboxes.csv --epochs=130 \
+        --output=/output --logging='true' --save-weights='true' --dropout=0.25 \
+        --patience=10 --batch-size=256 --units2=4096 --units1=2048 \
+        --model='resnet' --resnet-size='50' --min-class-img-count=0 \
+        --learning-rate=0.0001 --optimizer='adam'
 
-The Docker image `king0759/tf2_gpu_jupyter_mpl:3` contains all the dependent modules. Importantly, you will need to update the mount source above to the scripts directory on your working directory, if you make changes to these scripts.You should also select one or more GPU to designate for your container:
-
-- GPU-8121da2f-b1c3-d231-a9ab-7d6f598ba2dd
-- GPU-7a7c102c-5f71-a0fd-2ac0-f45a63c82dc5
-- GPU-0c5076b3-fe4a-0cd8-e4b7-71c2037933c0)
-- GPU-3c51591d-cfdb-f87c-ece8-8dcfdc81e67a
-
-These are the unique identifiers for GPUs 0-3, respectively. To see which GPUs are free and which are being used type `nvidia-smi`. Their listed order corresponds to the above.
+### Explanation
+- `docker run`: starts a new container
+- `-it`: runs the container in interactive mode
+- `--name make_model_classifier`: specifies the container name as 'make_model_classifier'
+- `-d`: run the container detached. To work interactively in the container omit this
+- `--rm`: removes the container at the end of execution. Note - since output is stored in a volume this persists beyond the life of the container. It's also good practice to remove containers you're not using to reduce HD space
+- `--mount type=bind,source=/home/kingj/scripts,target=/scripts`: directly mount the `/home/kingj/scripts` directory, as `/scripts` within the container. Change the source and target directories as needed
+- `--mount source=MERGEN_Make_Model_data,target=/data`: mounts the now deleted data volume, `MERGEN_Make_Model_data` as `/data` within the container
+- `--mount source=MERGEN_Make_Model_output,target=/output`: mounts the now deleted output volume
+- `--gpus device=GPU-3c51591d-cfdb-f87c-ece8-8dcfdc81e67a`: Specifies a particular GPU to use. To use all GPUs change this to `--gpus all`
+- `king0759/tf2_gpu_jupyter_mpl:v3`: container image. If not stored locally this will be downloaded from Docker Hub
+- `python3`: specifies the container should be instantated using Python. To instead instantiate using Bash enter `/bin/bash` or omit entirely (this is the default for this Docker image). Note - the software available in a container depends on the container image
+- `./scripts/MakeModelClassifier.py --train --data=/data --img-registry=/scripts/Bboxes.csv --epochs=130 --output=/output --logging='true' --save-weights='true' --dropout=0.25 --patience=10 --batch-size=256 --units2=4096 --units1=2048 --model='resnet' --resnet-size='50' --min-class-img-count=0 --learning-rate=0.0001 --optimizer='adam'`: instructs the container to train the model with the supplied arguments. If this is omitted the container will simply instantiate with the default or supplied program (i.e. Python or Bash) and await input
 
 # Results
 ### Best performing model
