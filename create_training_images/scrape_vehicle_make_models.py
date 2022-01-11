@@ -122,9 +122,9 @@ def fetch_image_urls(query: str, max_links_to_fetch: int, wd: webdriver, existin
 def search_and_download(wd, query: str, rootOutput: str, output_path: str, number_images: int =5):
 
     # Open JSON of image source URLs, if exists already, otherwise initialize
-    if os.path.exists('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/_image_sources.json'):
+    if os.path.exists('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/image_registries/_image_sources.json'):
 
-        with open('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/_image_sources.json', 'rb') as j:
+        with open('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/image_registeries/_image_sources.json', 'rb') as j:
             existing_urls = json.load(j)
 
     else:
@@ -162,7 +162,7 @@ def search_and_download(wd, query: str, rootOutput: str, output_path: str, numbe
                 print(f"ERROR - Could not save {url} - {e}")
 
             with open(
-                    '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/data_directories/_image_sources.json',
+                    '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/image_registries/_image_sources.json',
                     'w') as j:
                 json.dump(existing_urls, j)
 
@@ -178,7 +178,7 @@ def parse_opt():
 
 def main(opt):
 
-    df = pd.read_csv('./data/make_model_database_mod.csv')
+    df = pd.read_csv('./create_training_images/data/make_model_database_mod.csv')
     rootOutput = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/scraped_images'
 
     number_images = 100

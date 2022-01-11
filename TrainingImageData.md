@@ -78,12 +78,12 @@ The following offers a detailed explanation of how the training image dataset wa
 - A kernel density plot of YOLOv5 XL bounding box confidence.
 <br />
 
-![kde_bb_confidence](./create_training_images/kdeplot_yolo_confidence.png)
+![kde_bb_confidence](create_training_images/figs/kdeplot_yolo_confidence.png)
 
 - The empirical cumulative distribution function (ECDF) of bound box area from the YOLOv5 XL model.
 <br />
 
-![ECDF_Bbox](./create_training_images/ecdf_bounding_box_area.png)
+![ECDF_Bbox](create_training_images/figs/ecdf_bounding_box_area.png)
 
 - In supplementary analyses we imposed restrictions on the minimum image count per class, meaning make-model classes below this threshold were excluded from training and evaluation. This, however, had little impact on model performance; correspondingly, we include all 574 classes in our final model.
 <br> <br />
@@ -106,14 +106,14 @@ The following offers a detailed explanation of how the training image dataset wa
 
 <br />
 
-![ECDF_img_count](./create_training_images/ecdf_img_count.png)
+![ECDF_img_count](create_training_images/figs/ecdf_img_count.png)
 
 
 
 - The following figure illustrates the final number of images per make-model class in our resulting training data, net of analytic restrictions.
 <br> <br />
 
-![test](./create_training_images/final_img_count_class.png)
+![test](create_training_images/figs/final_img_count_class.png)
 
 
 # Pipeline to Collect Training Images

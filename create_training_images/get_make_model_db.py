@@ -52,4 +52,4 @@ if __name__ == '__main__':
 
     df['Make'] = df.Make.str.replace("Ram", "RAM").str.replace("FIAT", 'Fiat').str.replace("MAZDA", 'Mazda')
 
-    df.to_csv('./data/make_model_database.csv', index=False)
+    df.to_csv('./create_training_images/data/make_model_database.csv', index=False)

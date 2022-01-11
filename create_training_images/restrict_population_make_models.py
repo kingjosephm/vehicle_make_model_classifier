@@ -5,9 +5,9 @@ pd.set_option('display.max_columns', 500)
 
 if __name__ == '__main__':
 
-    df = pd.read_csv('./create_training_images/make_model_database.csv')
+    df = pd.read_csv('./create_training_images/data/make_model_database.csv')
 
-    with open('./create_training_images/make_modeL_database_clean.json') as f:
+    with open('./create_training_images/utils/make_modeL_database_clean.json') as f:
         fixes = json.load(f)
 
     # Restrict to brands of interest
@@ -291,4 +291,4 @@ if __name__ == '__main__':
 
     df = df.sort_values(by=['Make', 'Detailed Model', 'Year']).reset_index(drop=True)
 
-    df.to_csv('./create_training_images/make_model_database_mod.csv', index=False)
+    df.to_csv('./create_training_images/data/make_model_database_mod.csv', index=False)
