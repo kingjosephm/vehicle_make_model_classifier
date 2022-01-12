@@ -88,43 +88,43 @@ In predict mode, the script creates the `logs` subdirectory and all files as abo
 
 
 # Code structure
-### Root dir:
-- `MakeModelClassifier.py`: methods for the MakeModelClass subclass. Primary script used to train the make-model classifier or make predictions using weights from this model
-- `core.py`: abstract base class (ABC) superclass containing core methods used by `MakeModelClassifier.py`
-- `README.md`: this script, explains the branch of this repository
-- `TrainingImageData.md`: fuller explanation of training data
-- `Docker_Linux_HELPME.md`: useful common commands for Docker and Linux
-- `driver.sh`: shell script to automate the uploading of other scripts in this branch to the GPU cluster
-- `requirements.txt`: contains full list of all dependencies used to implement this code
+### Root dir
+- [MakeModelClassifier.py](MakeModelClassifier.py): methods for the MakeModelClass subclass. Primary script used to train the make-model classifier or make predictions using weights from this model
+- [core.py](core.py): abstract base class (ABC) superclass containing core methods used by [MakeModelClassifier.py](MakeModelClassifier.py)
+- [README.md](README.md): this script, explains the branch of this repository
+- [TrainingImageData.md](TrainingImageData.md): fuller explanation of training data
+- [Docker_Linux_HELPME.md](Docker_Linux_HELPME.md: useful common commands for Docker and Linux
+- [driver.sh](driver.sh): shell script to automate the uploading of other scripts in this branch to the GPU cluster
+- [requirements.txt](requirements.txt): contains full list of all dependencies used to implement this code
 
-### Scripts to curate test sets:
-- `./create_test_images/curate_stanford_img_dir.py`: curates the Stanford cars dataset, generating image directory
-- `./create_test_images/curate_thermal_img_dir.py`: curates the thermal image dataset, generating image directory
+### [create_test_images](create_test_images)
+- [curate_stanford_img_dir.py](./create_test_images/curate_stanford_img_dir.py): curates the Stanford cars dataset, generating image directory
+- [curate_thermal_img_dir.py](./create_test_images/curate_thermal_img_dir.py): curates the thermal image dataset, generating image directory
 
-### Scripts and notebooks for training set:
-- `./create_training_images/get_make_model_db.py`: queries the back4app database, outputting `./create_training_images/data/make_model_database.csv`
+### [create_training_images](create_training_images)
+- [get_make_model_db.py](./create_training_images/get_make_model_db.py): queries the back4app database, outputting `./create_training_images/data/make_model_database.csv`
 
-- `./create_training_images/restrict_population_make_models.py`: standardizes and fixes some errors in vehicle makes and models, outputting `./create_training_images/data/make_model_database_mod.csv`
+- [restrict_population_make_models.py](./create_training_images/restrict_population_make_models.py): standardizes and fixes some errors in vehicle makes and models, outputting `./create_training_images/data/make_model_database_mod.csv`
 
-- `./create_training_images/scrape_vehicle_make_models.py`: scrapes Google Images for each detailed make-model-year combination
+- [scrape_vehicle_make_models.py](./create_training_images/scrape_vehicle_make_models.py): scrapes Google Images for each detailed make-model-year combination
 
-- `./create_training_images/create_image_directory.py`: ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. Outputs image registry
+- [create_image_directory.py](./create_training_images/create_image_directory.py): ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. Outputs image registry
 
-- `./create_training_images/yolov5_vehicle_bboxes.py`: detects objects in images using [YOLOv5](https://github.com/ultralytics/yolov5) algorithm
+- [yolov5_vehicle_bboxes.py](./create_training_images/yolov5_vehicle_bboxes.py): detects objects in images using [YOLOv5](https://github.com/ultralytics/yolov5) algorithm
 
-- `./create_training_images/analysis/back4app_database_analysis.ipynb`: Notebook examining list of vehicle makes and models in [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database
+- [back4app_database_analysis.ipynb](./create_training_images/analysis/back4app_database_analysis.ipynb): Notebook examining list of vehicle makes and models in [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database
 
-- `./create_training_images/analyses/scraped_image_analysis.ipynb`: Examines distributions of scraped images
+- [scraped_image_analysis.ipynb](./create_training_images/analyses/scraped_image_analysis.ipynb): Examines distributions of scraped images
 
-### Results
-- `./results/TestSetAnalysis.ipynb`: Examines model performance by make-model class using a holdout set from our training images <br> </br>
+### [results](results)
+- [TestSetAnalysis.ipynb](./results/TestSetAnalysis.ipynb): Examines model performance by make-model class using a holdout set from our training images <br> </br>
 
 ***TODO***
 
-### Tests
-- `./tests/onnx_keras_weights.ipynb`: performs formal statistical test that softmax probabilities output by original TensorFlow Keras model are very close to Onnx weights
+### [tests](tests)
+- [onnx_keras_weights.ipynb](./tests/onnx_keras_weights.ipynb: performs formal statistical test that softmax probabilities output by original TensorFlow Keras model are very close to Onnx weights
 
-### YOLOv5
+### [YOLOv5](yolov5)
 This is a Git submodule for the [YOLOv5](https://github.com/ultralytics/yolov5) repository
 
 
@@ -140,7 +140,7 @@ Training are stored on the cluster at `/home/kingj/scraped_images`. Currently, n
 
 
 # Docker
-We train the GAN models in a Docker container (see [this link](https://docs.docker.com/get-started/overview/) for information on Docker). Also see `Docker_Linux_HELPME.md` for useful Docker and Linux commands. Containers create separate environments from the operating system, so training data and scripts must be moved into the container. Two options exist: create a [Docker volume](https://docs.docker.com/storage/volumes/) (preferred) that persists beyond the life of the container, or mount the data/scripts when the container is instantiated. Directly-mounted data/scripts do not persist beyond the life of the container.
+We train the GAN models in a Docker container (see [this link](https://docs.docker.com/get-started/overview/) for information on Docker). Also see [Docker_Linux_HELPME.md](Docker_Linux_HELPME.md) for useful Docker and Linux commands. Containers create separate environments from the operating system, so training data and scripts must be moved into the container. Two options exist: create a [Docker volume](https://docs.docker.com/storage/volumes/) (preferred) that persists beyond the life of the container, or mount the data/scripts when the container is instantiated. Directly-mounted data/scripts do not persist beyond the life of the container.
 
 ### Data volume
 This has been removed to save HD space. To re-create this follow the instructions to create new docker volume in `Docker_Linux_HELPME.md`
@@ -196,12 +196,16 @@ We use a pretrained Tensorflow Keras [ResNet50v2](https://arxiv.org/abs/1603.050
 
 # Data
 ## Training data
-A fuller description of the training image dataset, how it was constructed, and statistical moments can be found in `TrainingImageData.md`. We scrape Google Images to create our training image dataset of passenger vehicles (including coupes, sedans, hatchbacks, SUVs, convertibles, wagons, vans, and pickups), which is representative of foreign and domestic vehicles sold in the U.S. market in 2000-2022. This does not include exotic vehicles or heavy-duty work vehicles. We obtained this list of vehicles sold in the U.S. during this period from the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles sold in the U.S. in recent decades.
+A fuller description of the training image dataset, how it was constructed, and statistical moments can be found in [TrainingImageData.md](TrainingImageData.md).
+
+We were unable to find a sufficiently-large (>500k) publicly-available image dataset, so we created our own. This not only ensures we have sufficient images per class, but also that the training set is **representative of common passenger vehicles currently found on U.S. streets**. By contrast, we do not expect our test sets to be as representative for reasons described below.
+
+We scrape Google Images to create our training image dataset of passenger vehicles (including coupes, sedans, hatchbacks, SUVs, convertibles, wagons, vans, and pickups), which is representative of foreign and domestic vehicles sold in the U.S. market in 2000-2022. This does not include exotic vehicles or heavy-duty work vehicles. We obtained this list of vehicles sold in the U.S. during this period from the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles sold in the U.S. in recent decades.
 
 These data are stored in the MERGEN OneDrive Data folder in `scraped_images.zip`.
 
 ### Manufacturers in data
-We make several sample restrictions (see `TrainingImageData.md`), yielding the following 40 manufacturers and 574 distinct make-models as our final analytic training set.
+We make several sample restrictions (see [TrainingImageData.md](TrainingImageData.md)), yielding the following 40 manufacturers and 574 distinct make-models as our final analytic training set.
 
 | Manufacturer | Years in Database | Number of Models |
 | --------- | ----- | ------- |
@@ -276,9 +280,9 @@ The table below describes the distribution of training images per class in our f
 | max       | 7821.00 |
 
 ## Test data
-We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) as our primary test set. These data are stored in the MERGEN OneDrive Data folder in `stanford_car_data.zip` and were downloaded from Kaggle.com. Originally containing 16,185 images on 196 make-model classes spanning 2001-2012, we restrict to overlapping vehicle make-models with our training set. Net of these restrictions, this left us with 124 distinct classes and  12,596 test images.
+We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) as our primary test set. These data are stored in the MERGEN OneDrive Data folder in `stanford_car_data.zip` and were downloaded from Kaggle.com. Originally containing 16,185 images on 196 make-model classes spanning 2001-2012, we restrict to overlapping vehicle make-models with our training set. Net of these restrictions, this left us with 124 distinct classes and  12,596 test images. We do not expect this dataset to be representative of current U.S. vehicles as it's outdated. It's also unclear how this dataset was assembled.
 
-Our second test set is a small (1,820) image dataset of matched thermal and visible images with hand-curated make-model classes. These data were collected by Booz Allen employees around several parking lots in the DC-Maryland-Virginia area. Unfortunately, they only contain 11 make-models that overlap with our training data. These data can be found in the MERGEN OneDrive Data folder in `Thermal-Visible Make-Model Test Images.zip`.
+Our second test set is a small (1,820) image dataset of matched thermal and visible images with hand-curated make-model classes. These data were collected by Booz Allen employees around several parking lots in the DC-Maryland-Virginia area. Unfortunately, they only contain 11 make-models that overlap with our training data. These data can be found in the MERGEN OneDrive Data folder in `Thermal-Visible Make-Model Test Images.zip`. We do not expect this dataset to be representative of current U.S. vehicles as it was a convenience sample, i.e. vehicles parked in large parking lots around the DC-Maryland-Virgina area.
 
 
 # Data labels
@@ -315,7 +319,7 @@ Make-model labels are built into the nested make->model->year directory structur
 ### Categorical cross-entropy loss by epoch
 ![loss](results/best_model_figs/Loss.png)
 
-Note: A more extensive analysis of performance in the test set can be viewed in the notebook at `./results/TestSetAnalysis.ipynb`.
+Note: A more extensive analysis of performance in the test set can be viewed in the notebook at [TestSetAnalysis.ipynb](./results/TestSetAnalysis.ipynb).
 
 ### Summary of experiments
 The following table contains results from a host of recent experiments to find the optimal model given our training data. In particular, number 14 is our best performing model.
