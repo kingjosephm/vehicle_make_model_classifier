@@ -317,6 +317,8 @@ Make-model class labels are built into the nested make->model->year directory st
 - Minimum training images per class: 0
 - Total classes: 574
 
+This model can be found [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/ML%20Model%20Results/BestPerformingVisibleVehicleClassifier.zip?csf=1&web=1&e=j9vzB7). Results from other model experiments, including weights, can be found [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/ML%20Model%20Results/MakeModelClassifierResults.zip?csf=1&web=1&e=h58dcR).
+
 ### Categorical accuracy by epoch
 ![accuracy](results/best_model_figs/Accuracy.png)
 ### Categorical cross-entropy loss by epoch
