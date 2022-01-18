@@ -122,7 +122,7 @@ In predict mode, the script creates the `logs` subdirectory and all files as abo
 ***TODO***
 
 ### [tests](tests)
-- [onnx_keras_weights.ipynb](./tests/onnx_keras_weights.ipynb: performs formal statistical test that softmax probabilities output by original TensorFlow Keras model are very close to Onnx weights
+- [onnx_keras_weights.ipynb](./tests/onnx_keras_weights.ipynb): performs formal statistical test that softmax probabilities output by original TensorFlow Keras model are very close to Onnx weights
 
 ### [YOLOv5](yolov5)
 This is a Git submodule for the [YOLOv5](https://github.com/ultralytics/yolov5) repository
@@ -143,10 +143,10 @@ Training are stored on the cluster at `/home/kingj/scraped_images`. Currently, n
 We train the GAN models in a Docker container (see [this link](https://docs.docker.com/get-started/overview/) for information on Docker). Also see [Docker_Linux_HELPME.md](Docker_Linux_HELPME.md) for useful Docker and Linux commands. Containers create separate environments from the operating system, so training data and scripts must be moved into the container. Two options exist: create a [Docker volume](https://docs.docker.com/storage/volumes/) (preferred) that persists beyond the life of the container, or mount the data/scripts when the container is instantiated. Directly-mounted data/scripts do not persist beyond the life of the container.
 
 ### Data volume
-This has been removed to save HD space. To re-create this follow the instructions to create new docker volume in `Docker_Linux_HELPME.md`
+This has been removed to save HD space. To re-create this follow the instructions to create new docker volume in [Docker_Linux_HELPME](Docker_Linux_HELPME.md)
 
 ### Model output volume
-This has been removed to save HD space. To re-create this follow the instructions to create new empty docker volume in `Docker_Linux_HELPME.md`
+This has been removed to save HD space. To re-create this follow the instructions to create new empty docker volume in [Docker_Linux_HELPME](Docker_Linux_HELPME.md)
 
 ### Docker image
 For this code, as well as the GAN model, the following image was used:
@@ -191,7 +191,7 @@ To run the classifier using an ResNet50 layer, for example, in a detached Docker
 # Vehicle make-model classifier
 Compared to object detection, interest and research in vehicle classification lags significantly. Several small-scale research projects can be found via Google (e.g. [example 1](https://towardsdatascience.com/car-model-classification-e1ff09573f4f), [example 2](https://medium.com/@sridatta0808/deep-learning-based-vehicle-make-model-mmr-classification-on-carconnection-dataset-9bc93997041f)) and at least [one company](http://spectrico.com/car-make-model-recognition.html) offers commercial products. Based in part on the former research projects, we opted to build our own vehicle make-model classifier as this enabled us to customize to our particular need.
 
-We use a pretrained Tensorflow Keras [ResNet50v2](https://arxiv.org/abs/1603.05027) layer, which was trained using [ImageNet](https://www.image-net.org/), a large open-source image dataset consisting of 1,000+ distinct classes. We remove the top output layer of ResNet50v2, substituting this with our own trainable layers (described below). We also conducted several experiments varying, among other things, the pretrained layer and top model architecture (described below).
+We use a pretrained TensorFlow Keras [ResNet50v2](https://arxiv.org/abs/1603.05027) layer, which was trained using [ImageNet](https://www.image-net.org/), a large open-source image dataset consisting of 1,000+ distinct classes. We remove the top output layer of ResNet50v2, substituting this with our own trainable layers (described below). We also conducted several experiments varying, among other things, the pretrained layer and top model architecture (described below).
 
 
 # Data
@@ -202,7 +202,10 @@ We were unable to find a sufficiently-large (>500k) publicly-available image dat
 
 We scrape Google Images to create our training image dataset of passenger vehicles (including coupes, sedans, hatchbacks, SUVs, convertibles, wagons, vans, and pickups), which is representative of foreign and domestic vehicles sold in the U.S. market in 2000-2022. This does not include exotic vehicles or heavy-duty work vehicles. We obtained this list of vehicles sold in the U.S. during this period from the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles sold in the U.S. in recent decades.
 
-These data are stored in the MERGEN OneDrive Data folder in `scraped_images.zip`.
+Non-augmented, original images are stored in the MERGEN OneDrive Data folder [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/scraped_images.zip?csf=1&web=1&e=pR2BPO).
+
+### Image augmentation
+At training time we apply image augmentation to the training images only. Specifically, we apply random flipping, random brightness, random contrast, randomly convert 50% of images to grayscale (and back to 3-channels to ensure data shape consistency), random hue, and random saturation. Validation and test sets remain non-augmented, original images. Images are not preprocessed prior to read-in.
 
 ### Manufacturers in data
 We make several sample restrictions (see [TrainingImageData.md](TrainingImageData.md)), yielding the following 40 manufacturers and 574 distinct make-models as our final analytic training set.
@@ -280,15 +283,15 @@ The table below describes the distribution of training images per class in our f
 | max       | 7821.00 |
 
 ## Test data
-We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) as our primary test set. These data are stored in the MERGEN OneDrive Data folder in `stanford_car_data.zip` and were downloaded from Kaggle.com. Originally containing 16,185 images on 196 make-model classes spanning 2001-2012, we restrict to overlapping vehicle make-models with our training set. Net of these restrictions, this left us with 124 distinct classes and  12,596 test images. We do not expect this dataset to be representative of current U.S. vehicles as it's outdated. It's also unclear how this dataset was assembled.
+We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) as our primary test set. These data are stored in the MERGEN OneDrive Data folder [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/stanford_car_data.zip?csf=1&web=1&e=KAXaUy) and were downloaded from Kaggle.com. Originally containing 16,185 images on 196 make-model classes spanning 2001-2012, we restrict to overlapping vehicle make-models with our training set. Net of these restrictions, this left us with 124 distinct classes and  12,596 test images. We do not expect this dataset to be representative of current U.S. vehicles as it's outdated. It's also unclear how this dataset was assembled.
 
-Our second test set is a small (1,820) image dataset of matched thermal and visible images with hand-curated make-model classes. These data were collected by Booz Allen employees around several parking lots in the DC-Maryland-Virginia area. Unfortunately, they only contain 11 make-models that overlap with our training data. These data can be found in the MERGEN OneDrive Data folder in `Thermal-Visible Make-Model Test Images.zip`. We do not expect this dataset to be representative of current U.S. vehicles as it was a convenience sample, i.e. vehicles parked in large parking lots around the DC-Maryland-Virgina area.
+Our second test set is a small (1,820) image dataset of matched thermal and visible images with hand-curated make-model classes. These data were collected by Booz Allen employees around several parking lots in the DC-Maryland-Virginia area. Unfortunately, they only contain 11 make-models that overlap with our training data. These data can be found in the MERGEN OneDrive Data folder [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/Thermal-Visible%20Make-Model%20Test%20Images.zip?csf=1&web=1&e=CFWpew). We do not expect this dataset to be representative of current U.S. vehicles as it was a convenience sample, i.e. vehicles parked in large parking lots around the DC-Maryland-Virginia area. The images are also not independent; they were gathered by a high-speed camera driving slowly in parking lots. Correspondingly, many of the images are of the *same* vehicle.
 
 
-# Data labels
-Make-model labels are built into the nested make->model->year directory structure of our training set. Rather than directly using this directory structure, we create a **CSV file containing the relative path to each image along with its label**. We call this dataframe the **image registry** or `img-registry`. We also use this CSV file to hold the YOLOv5 bounding box coordinates for each image. Using this external CSV allows us to generate bounding boxes once ahead of time and save them, rather than generating them on-the-fly each time an image enters the make-model classifier pipeline.
+# Class labels
+Make-model class labels are built into the nested make->model->year directory structure of our training set. Rather than directly using this directory structure, we create a **CSV file containing the relative path to each image along with its label**. We call this dataframe the **image registry** or `img-registry`. We also use this CSV file to hold the YOLOv5 bounding box coordinates for each image. Using this external CSV allows us to generate bounding boxes once ahead of time and save them, rather than generating them on-the-fly each time an image enters the make-model classifier pipeline. A zip file of these registries is also found [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/image_registries.zip?csf=1&web=1&e=54ZNnT).
 
-### Labels and bounding box info:
+### Labels and bounding box info
 - `./image_registries/Bboxes.csv`: training set
 - `./image_registries/Stanford_Bboxes_xl.csv`: Stanford dataset
 - `./image_registries/Bboxes_xl_test_thermal.csv`: thermal test images
