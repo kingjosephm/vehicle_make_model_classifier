@@ -124,7 +124,7 @@ def search_and_download(wd, query: str, rootOutput: str, output_path: str, numbe
     # Open JSON of image source URLs, if exists already, otherwise initialize
     if os.path.exists('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/image_registries/_image_sources.json'):
 
-        with open('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/image_registeries/_image_sources.json', 'rb') as j:
+        with open('/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/image_registries/_image_sources.json', 'rb') as j:
             existing_urls = json.load(j)
 
     else:
