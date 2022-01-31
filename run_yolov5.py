@@ -10,6 +10,15 @@ import argparse
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_colwidth', None)
 
+
+"""
+    Script serially runs YOLOv5 algorithm on a CSV column of image paths, saving this CSV to disk along with two new,
+    generated columns: 1) a list of bounding box coordinates of the single LARGEST vehicle object per image; 2) a 
+    list per image of image dimensions. Image dims are necessary to dilate bounding boxes for `MakeModelClassifier`.
+    Downloads (requires internet) YOLOv5 weights from Torch Hub if not saved in default cache location.
+"""
+
+
 try:  # if run locally, not on GPU server
     import caffeine
     caffeine.on(display=True)
@@ -69,17 +78,25 @@ def detect_cars(path, model, min_confidence=0.5):
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--img-registry', type=str, help='path to CSV containing relative image paths and labels', required=True)
-    parser.add_argument('--data', type=str, help='path to root directory where data located', required=True)
-    parser.add_argument('--min-confidence', type=float, default=0.0, help='minimum confidence level of YOLOv5 bounding box object type')
-    parser.add_argument('--yolo-model', type=str, default='small', choices=['small', 'medium', 'large', 'xl'], help='YOLOv5 model')
-    parser.add_argument('--output', type=str, required=True, help='output path including title of file')
+    parser.add_argument('--img-registry', type=str, help="Path to CSV containing relative image paths and labels. Note - looks for 'Source Path' column", required=True)
+    parser.add_argument('--data', type=str, help='Path to root directory where data located. Note - paths in `img-registry` dataframe assumed to be relative', required=True)
+    parser.add_argument('--min-confidence', type=float, default=0.0, help='Minimum confidence level of YOLOv5 bounding box object type')
+    parser.add_argument('--yolo-model', type=str, default='xl', choices=['small', 'medium', 'large', 'xl'], help='YOLOv5 model')
+    parser.add_argument('--output', type=str, required=True, help='Output path, to include title of CSV file')
     args = parser.parse_args()
-    assert (args.min_confidence >= 0 and args.min_confidence < 1), 'min-codence param is bounded 0-1!'
+    assert (args.min_confidence >= 0 and args.min_confidence < 1), 'min-confidence param is bounded 0-1!'
     return args
 
 
 def main(opt):
+    """
+    Serially runs YOLOv5 algorithm on a CSV column of image paths, saving this CSV to disk along with two new,
+    generated columns: 1) a list of bounding box coordinates of the single LARGEST vehicle object per image; 2) a
+    list per image of image dimensions. Image dims are necessary to dilate bounding boxes for `MakeModelClassifier`.
+    Downloads (requires internet) YOLOv5 weights from Torch Hub if not saved in default cache location.
+    :param opt: argparse  argument parser object
+    :return: None
+    """
 
     # Read in model, or download
     if opt.yolo_model == 'small':
