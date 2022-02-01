@@ -1,21 +1,32 @@
 import pandas as pd
 import os
 import numpy as np
+import argparse
 
 pd.options.display.max_colwidth = None
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.max_rows', 550)
 
-if __name__ == '__main__':
+"""
+    Creates image directory for Stanford test dataset. Precursor script for this dataset for `run_yolov5.py`.
+    Uses image labels from training set to narrow down to overlapping make-model labels
+"""
 
-    data_dir_path = './data/Bboxes.csv'
-    dir_df = pd.read_csv(data_dir_path, usecols=['Make', 'Model'])
+def parse_opt():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--root', type=str, help='Path to root directory of images', required=True)
+    parser.add_argument('--train-image-directory', type=str, help='Full path to training image directory', required=True)
+    parser.add_argument('--output', type=str, help='Output path, to include title of CSV file', required=True)
+    args = parser.parse_args()
+    return args
 
-    root = '/Users/josephking/Documents/sponsored_projects/MERGEN/data/vehicle_classifier/stanford_car_data'
+def main(opt):
+
+    dir_df = pd.read_csv(opt.train_image_directory, usecols=['Make', 'Model'])
 
     # Create pd.DataFrame of vehicle make models based on directory structure
     lst = []
-    for subdir, dirs, files in os.walk(root):
+    for subdir, dirs, files in os.walk(opt.root):
         for file in [i for i in files if 'jpg' in i or 'png' in i]:
             lst.append('/'.join(os.path.join(subdir, file).split('/')[-4:]))
 
@@ -94,5 +105,10 @@ if __name__ == '__main__':
     df = df.loc[df['Make-Model'].isin(keepers)].reset_index(drop=True)
 
     df = df[['Make', 'Model', 'Year', 'Source Path']]
-    df = df.sample(frac=1, random_state=123)
-    df.to_csv(os.path.join(root, 'stanford_img_dir.csv'), index=False)
+    df = df.sample(frac=1, random_state=123)  # shuffle
+    df.to_csv(opt.output, index=False)
+
+if __name__ == '__main__':
+
+    opt = parse_opt()
+    main(opt)
