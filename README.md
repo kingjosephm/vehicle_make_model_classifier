@@ -14,26 +14,30 @@
 - [Vehicle make-model classifier](#vehicle-make-model-classifier)
 - [Data](#data)
     - [Training data](#training-data)
-      - [Manufacturers in data](#manufacturers-in-data)
       - [How classes are defined](#how-classes-are-defined)
-      - [Distribution of images per class](#distribution-of-images-per-class)
+      - [Analytic restrictions](#analytic-restrictions)
+      - [Image augmentation](#image-augmentation)
+      - [Manufacturers in data](#manufacturers-in-data)
+      - [Distribution of images per class in analytic training set](#distribution-of-images-per-class-in-analytic-training-set)
     - [Test data](#test-data)
-- [Data labels](#data-labels)
+- [Image registries](#image-registries)
 - [Results: Best performing model](#results-best-performing-model)
     - [Summary of experiments](#summary-of-experiments)
 
 # Introduction
 The code in this repository develops a TensorFlow Keras computer vision model to classify passenger vehicle makes (i.e. manufacturer) and models. 
 
-This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to the [trained cGAN model for conversion to the visible spectrum](https://github.boozallencsn.com/MERGEN/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
+This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to a [trained cGAN model for conversion to the visible spectrum](https://github.boozallencsn.com/MERGEN/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
 
-We train our vehicle make-model classifier using a large (n=664,678) dataset of 40 passenger vehicle manufacturers and 574 distinct make-model classes.
+**Note - we run the YOLOv5 (XL) algorithm in this repository as an image preprocessing step** to speed up training. We run this algorithm prior to training the make-model classifier, generating bounding box coordinates and saving these in a CSV file. At training time, we supply this CSV file to the make-model classifier script. On the Jetson device images will be processed in the sequential order described above.
+
+We train our vehicle make-model classifier using a large (n=664,678), custom dataset of 40 passenger vehicle manufacturers and 574 distinct make-model classes. Details about this dataset and how it was created can be found [here](https://github.boozallencsn.com/MERGEN/vehicle_make_model_dataset).
 
 
 # Quick start
 ### Requirements
 - Linux or macOS (may work on Windows, not tested)
-- [ideally] NVIDIA GPU; will also work on CPU
+- (ideally) NVIDIA GPU; will also work on CPU
 
 ### Getting started
 Clone this repository
@@ -92,34 +96,23 @@ In predict mode, the script creates the `logs` subdirectory and all files as abo
 - [MakeModelClassifier.py](MakeModelClassifier.py): methods for the MakeModelClass subclass. Primary script used to train the make-model classifier or make predictions using weights from this model
 - [core.py](core.py): abstract base class (ABC) superclass containing core methods used by [MakeModelClassifier.py](MakeModelClassifier.py)
 - [README.md](README.md): this script, explains the branch of this repository
-- [TrainingImageData.md](TrainingImageData.md): fuller explanation of training data
-- [Docker_Linux_HELPME.md](Docker_Linux_HELPME.md: useful common commands for Docker and Linux
+- [TrainingImageData.md](TrainingDescriptiveStats.md): fuller explanation of training data
+- [Docker_Linux_HELPME.md](Docker_Linux_HELPME.md): useful common commands for Docker and Linux
 - [driver.sh](driver.sh): shell script to automate the uploading of other scripts in this branch to the GPU cluster
 - [requirements.txt](requirements.txt): contains full list of all dependencies used to implement this code
+- [run_yolov5.py](run_yolov5.py): driver script to detect vehicle bounding box coordinates using the [YOLOv5](https://github.com/ultralytics/yolov5) algorithm
 
-### [create_test_images](create_test_images)
-- [curate_stanford_img_dir.py](./create_test_images/curate_stanford_img_dir.py): curates the Stanford cars dataset, generating image directory
-- [curate_thermal_img_dir.py](./create_test_images/curate_thermal_img_dir.py): curates the thermal image dataset, generating image directory
-
-### [create_training_images](create_training_images)
-- [get_make_model_db.py](./create_training_images/get_make_model_db.py): queries the back4app database, outputting `./create_training_images/data/make_model_database.csv`
-
-- [restrict_population_make_models.py](./create_training_images/restrict_population_make_models.py): standardizes and fixes some errors in vehicle makes and models, outputting `./create_training_images/data/make_model_database_mod.csv`
-
-- [scrape_vehicle_make_models.py](./create_training_images/scrape_vehicle_make_models.py): scrapes Google Images for each detailed make-model-year combination
-
-- [create_image_directory.py](./create_training_images/create_image_directory.py): ensures non-duplicate and valid URLs and creates the image dataframe that contains a path and label to each JPG image. Outputs image registry
-
-- [yolov5_vehicle_bboxes.py](./create_training_images/yolov5_vehicle_bboxes.py): detects objects in images using [YOLOv5](https://github.com/ultralytics/yolov5) algorithm
-
-- [back4app_database_analysis.ipynb](./create_training_images/analysis/back4app_database_analysis.ipynb): Notebook examining list of vehicle makes and models in [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database
-
-- [scraped_image_analysis.ipynb](./create_training_images/analyses/scraped_image_analysis.ipynb): Examines distributions of scraped images
+### [data](data)
+- [stanford_test_images.py](./data/create_image_registries/stanford_test_images.py): creates image directory for [Stanford car dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) test images
+- [thermal_test_images.py](./data/create_image_registries/thermal_test_images.py): creates image directory for matched thermal-visible test images
+- [training_images.py](./data/create_image_registries/training_images.py): creates image directory for training images
+- [scraped_image_analysis.ipynb](./data/training%20set/analyses/scraped_image_analysis.ipynb): examines distribution of training images
 
 ### [results](results)
-- [TestSetAnalysis.ipynb](./results/TestSetAnalysis.ipynb): Examines model performance by make-model class using a holdout set from our training images <br> </br>
-
-***TODO***
+- [ROC_curves.ipynb](./results/ROC_curves.ipynb): multiclass ROC curve plots
+- [TestSetAnalysis.ipynb](./results/TestSetAnalysis.ipynb): examines model performance by make-model class using a holdout set from our training images 
+- [ThermalAnalysis.ipynb](./results/ThermalAnalysis.ipynb): compares classifier performance using thermal-trained small YOLOv5 model vs default YOLOv5 medium model
+- [ThermalVisibleComparison.ipynb](./results/ThermalVisibleComparison.ipynb): investigates classification performance using different-sized YOLOv5 models and among matched thermal and visible test set images
 
 ### [tests](tests)
 - [onnx_keras_weights.ipynb](./tests/onnx_keras_weights.ipynb): performs formal statistical test that softmax probabilities output by original TensorFlow Keras model are very close to Onnx weights
@@ -196,19 +189,39 @@ We use a pretrained TensorFlow Keras [ResNet50v2](https://arxiv.org/abs/1603.050
 
 # Data
 ## Training data
-A fuller description of the training image dataset, how it was constructed, and statistical moments can be found in [TrainingImageData.md](TrainingImageData.md).
+We were unable to find a sufficiently-large (>500k) publicly-available image dataset, so we created our own. This not only ensures we have sufficient images per class, but also that the training set is **representative of common passenger vehicles currently found on U.S. streets**. Creation of this image dataset is detailed in the [vehicle_make_model_dataset repository](https://github.boozallencsn.com/MERGEN/vehicle_make_model_dataset). This dataset can be accessed [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/scraped_images.zip?csf=1&web=1&e=pR2BPO).
 
-We were unable to find a sufficiently-large (>500k) publicly-available image dataset, so we created our own. This not only ensures we have sufficient images per class, but also that the training set is **representative of common passenger vehicles currently found on U.S. streets**. By contrast, we do not expect our test sets to be as representative for reasons described below.
+### How classes are defined
+We define a class as a string concatenation of make and model. This entails pooling all years that a particular vehicle model was manufactured. Alternatively, we could treat each make-model-year as a distinct class. We opted for the former for several reasons:
 
-We scrape Google Images to create our training image dataset of passenger vehicles (including coupes, sedans, hatchbacks, SUVs, convertibles, wagons, vans, and pickups), which is representative of foreign and domestic vehicles sold in the U.S. market in 2000-2022. This does not include exotic vehicles or heavy-duty work vehicles. We obtained this list of vehicles sold in the U.S. during this period from the [back4app.com](https://www.back4app.com/database/back4app/car-make-model-dataset) database, an open-source dataset providing detailed information about motor vehicles sold in the U.S. in recent decades.
+1. Concatenating the year dimension would drastically increase the number of classes for the model to predict, from 574 to 5,287
+<br> </br>
+2. This would require significantly more data to ensure adequate image counts per class
+<br> </br>
+3. On the one hand, variation *within* make-models over time due to generational updates may degrade predictions. On the other, however, this may pale in comparison to differences *between* make-models. [Multivariate regression analyses](https://github.boozallencsn.com/MERGEN/vehicle_make_model_classifier/blob/main/results/TestSetAnalysis.ipynb) of a holdout set from our training images suggest the number of distinct years per make-model is not significantly related to differences in the F1-score, suggesting pooling years does not harm performance
 
-Non-augmented, original images are stored in the MERGEN OneDrive Data folder [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/scraped_images.zip?csf=1&web=1&e=pR2BPO).
+Another more promising strategy would be to group make-models into vehicle generations. We looked into this possibility; however, we found no readily-available datasets containing this information. Given the project timeline and budget, we decided against this.
+
+### Analytic restrictions
+For this classification task we impose additional analytic restrictions on the training set images. Specifically:
+
+- We use only images for which the YOLOv5 model (size XL) detected a vehicle. Of the original 664,678 training images, 631,973 (95.08%) were identified as having a vehicle object in them. If multiple vehicles were identified in an image, we keep the one with the largest bounding box pixel area.
+  - We explored using different sized YOLOv5 models (small, medium, large, XL). Although our training images lack bounding boxes to verify YOLOv5 predictions, we found that larger models detected a greater number of images with vehicles in them. We also found that the XL model achieved about a 3 percentage point higher categorical accuracy score compared to the small model.
+
+
+- We restrict to vehicles whose YOLOv5 bounding box confidence was >= 0.5 (609,265 images; 91.66%). [This figure](./data/training%20set/figs/kdeplot_yolo_confidence.png) displays a kernel density of bounding box confidence.
+  - We explored the impact of YOLOv5 model confidence level on vehicle classifier performance and found a weak correlation. Varying the level of confidence for the same YOLOv5 model did not appreciably affect the classifier.
+
+
+
+- We restrict to images whose bounding boxes are > 1st percentile of pixel area. The empirical cumulative distribution function (ECDF) of bounding box area for all images is [here](./data/training%20set/figs/ecdf_bounding_box_area.png). This reduced the total image count to 603,899 (90.86% of original images). The 1st percentile corresponded to 8,911 pixels, or approximately a 94 x 94 pixel image, which is comparably small. 
+  - Auxiliary analyses indicated that increasing this minimum object size threshold did not significantly affect classifier performance, while also reducing the number of sample images.
+
 
 ### Image augmentation
-At training time we apply image augmentation to the training images only. Specifically, we apply random flipping, random brightness, random contrast, randomly convert 50% of images to grayscale (and back to 3-channels to ensure data shape consistency), random hue, and random saturation. Validation and test sets remain non-augmented, original images. Images are not preprocessed prior to read-in.
+At training time we apply image augmentation to the training images only. Specifically, we apply random flipping, random brightness, random contrast, randomly convert 50% of images to grayscale (and back to 3-channels to ensure data shape consistency), random hue, and random saturation. Validation and test sets remain non-augmented, original images. Images are only augmented on read-in.
 
 ### Manufacturers in data
-We make several sample restrictions (see [TrainingImageData.md](TrainingImageData.md)), yielding the following 40 manufacturers and 574 distinct make-models as our final analytic training set.
 
 | Manufacturer | Years in Database | Number of Models |
 | --------- | ----- | ------- |
@@ -253,19 +266,8 @@ We make several sample restrictions (see [TrainingImageData.md](TrainingImageDat
 | Volvo | 2000-2021 | 16
 | smart | 2008-2018 | 1
 
-### How classes are defined
-We define a class as a string concatenation of make and model. This entails pooling all years a particular make-model was manufactured. Alternatively, we could treat each make-model-year a distinct class. We opted for the former for several reasons. 
 
-1. Concatenating the year dimension would drastically increase the number of classes for the model to predict, from 574 to 5,287
-<br> </br>
-2. This would require significantly more data to ensure adequate image counts per class
-<br> </br>
-3. On the one hand, variation *within* make-models over time due to generational updates may degrade predictions. On the other, however, this may pale in comparison to differences *between* make-models. [Multivariate regression analyses](https://github.boozallencsn.com/MERGEN/vehicle_make_model_classifier/blob/main/results/TestSetAnalysis.ipynb) of a holdout set from our training images suggest the number of distinct years per make-model is not significantly related to differences in the F1-score, suggesting pooling years does not harm performance
-
-Another more promising strategy would be to group make-models into vehicle generations. We looked into this possibility; however, we found no readily-available datasets containing this information. Given the project timeline and budget, we decided against this.
-
-### Distribution of images per class
-The table below describes the distribution of training images per class in our final analytic sample.
+### Distribution of images per class in analytic training set
 
 | Statistic | Value |
 | --------- | ----- |
@@ -282,20 +284,22 @@ The table below describes the distribution of training images per class in our f
 | 95%       | 7821.00 |
 | max       | 7821.00 |
 
+Additional descriptive statistics on our analytic training set can be found in [TrainingDescriptiveStats.md](TrainingDescriptiveStats.md).
+
 ## Test data
-We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) as our primary test set. These data are stored in the MERGEN OneDrive Data folder [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/stanford_car_data.zip?csf=1&web=1&e=KAXaUy) and were downloaded from Kaggle.com. Originally containing 16,185 images on 196 make-model classes spanning 2001-2012, we restrict to overlapping vehicle make-models with our training set. Net of these restrictions, this left us with 124 distinct classes and  12,596 test images. We do not expect this dataset to be representative of current U.S. vehicles as it's outdated. It's also unclear how this dataset was assembled.
-
-Our second test set is a small (1,820) image dataset of matched thermal and visible images with hand-curated make-model classes. These data were collected by Booz Allen employees around several parking lots in the DC-Maryland-Virginia area. Unfortunately, they only contain 11 make-models that overlap with our training data. These data can be found in the MERGEN OneDrive Data folder [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/Thermal-Visible%20Make-Model%20Test%20Images.zip?csf=1&web=1&e=CFWpew). We do not expect this dataset to be representative of current U.S. vehicles as it was a convenience sample, i.e. vehicles parked in large parking lots around the DC-Maryland-Virginia area. The images are also not independent; they were gathered by a high-speed camera driving slowly in parking lots. Correspondingly, many of the images are of the *same* vehicle.
+- We use the [Stanford cars dataset](https://www.kaggle.com/jessicali9530/stanford-cars-dataset) as our primary test set. These data are stored [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/stanford_car_data.zip?csf=1&web=1&e=KAXaUy) and were downloaded from Kaggle.com. Originally containing 16,185 images on 196 make-model classes spanning 2001-2012, we restrict to overlapping vehicle make-models with our training set. Net of these restrictions, this left us with 124 distinct classes and  12,596 test images. We do not expect this dataset to be representative of current U.S. vehicles as it's outdated. It's also unclear what sampling frame was used to create this dataset.
 
 
-# Class labels
-Make-model class labels are built into the nested make->model->year directory structure of our training set. Rather than directly using this directory structure, we create a **CSV file containing the relative path to each image along with its label**. We call this dataframe the **image registry** or `img-registry`. We also use this CSV file to hold the YOLOv5 bounding box coordinates for each image. Using this external CSV allows us to generate bounding boxes once ahead of time and save them, rather than generating them on-the-fly each time an image enters the make-model classifier pipeline. A zip file of these registries is also found [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/image_registries.zip?csf=1&web=1&e=54ZNnT).
+- Our second test set is a small (1,820) image dataset of matched thermal and visible images with hand-curated make-model classes. These data were collected by Booz Allen employees around several parking lots in the DC-Maryland-Virginia area. Unfortunately, they only contain 11 make-models that overlap with our training data. These data can be found [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/Thermal-Visible%20Make-Model%20Test%20Images.zip?csf=1&web=1&e=CFWpew). We do not expect this dataset to be representative of current U.S. vehicles as it was a convenience sample, i.e. vehicles parked in large parking lots around the DC-Maryland-Virginia area. The images are also not independent; they were gathered by a high-speed camera driving slowly in parking lots. Correspondingly, many of the images are of the *same* vehicle.
 
-### Labels and bounding box info
-- `./image_registries/Bboxes.csv`: training set
-- `./image_registries/Stanford_Bboxes_xl.csv`: Stanford dataset
-- `./image_registries/Bboxes_xl_test_thermal.csv`: thermal test images
-  - `./image_registries/Bboxes_xl_test_visible.csv`: matched visible test images 
+
+# Image registries
+We use an external CSV file, which we term an image registry or `img-registry`, to hold the labels for each image dataset. Using this external file allows us to run the YOLOv5 XL algorithm once for each of our training and test sets and save the bounding box coordinates per image. A zip file of these registries is found [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/image_registries.zip?csf=1&web=1&e=54ZNnT). We prefer this approach to calculating bounding boxes on-the-fly per mini-batch during the training process.
+
+### Creating image registries
+
+- We run each of the scripts in [data/create_image_registries](./data/create_image_registries) to create the respective image directory CSV for that image dataset (training, stanford test, thermal test)
+- Next, we execute [run_yolov5.py](run_yolov5.py) to append the bounding boxes to each image dataset
 
 
 # Results: Best performing model
