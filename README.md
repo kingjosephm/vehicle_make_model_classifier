@@ -27,11 +27,11 @@
 # Introduction
 The code in this repository develops a TensorFlow Keras computer vision model to classify passenger vehicle makes/manufacturers and models. 
 
-This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to a [trained cGAN model for conversion to the visible spectrum](https://github.boozallencsn.com/MERGEN/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
+This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to a [trained cGAN model for conversion to the visible spectrum](https://github.com/kingjosephm/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.com/kingjosephm/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
 
 **Note - we run the YOLOv5 (XL) algorithm in this repository as an image preprocessing step** to speed up training. We run this algorithm prior to training the make-model classifier, generating bounding box coordinates and saving these in a CSV file. At training time, we supply this CSV file to the make-model classifier script. On the Jetson device images will be processed in the sequential order described above.
 
-We train our vehicle make-model classifier using a large (n=664,678), custom dataset of 40 passenger vehicle manufacturers and 574 distinct make-model classes. Details about this dataset and how it was created can be found [here](https://github.boozallencsn.com/MERGEN/vehicle_make_model_dataset).
+We train our vehicle make-model classifier using a large (n=664,678), custom dataset of 40 passenger vehicle manufacturers and 574 distinct make-model classes. Details about this dataset and how it was created can be found [here](https://github.com/kingjosephm/vehicle_make_model_dataset).
 
 
 # Quick start
@@ -199,7 +199,7 @@ We use a pretrained TensorFlow Keras [ResNet50v2](https://arxiv.org/abs/1603.050
 
 # Data
 ## Training data
-We were unable to find a sufficiently-large (>500k) publicly-available image dataset, so we created our own. This not only ensures we have sufficient images per class, but also that the training set is **representative of common passenger vehicles currently found on U.S. streets**. Creation of this image dataset is detailed in the [vehicle_make_model_dataset repository](https://github.boozallencsn.com/MERGEN/vehicle_make_model_dataset). This dataset can be accessed [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/scraped_images.zip?csf=1&web=1&e=pR2BPO).
+We were unable to find a sufficiently-large (>500k) publicly-available image dataset, so we created our own. This not only ensures we have sufficient images per class, but also that the training set is **representative of common passenger vehicles currently found on U.S. streets**. Creation of this image dataset is detailed in the [vehicle_make_model_dataset repository](https://github.com/kingjosephm/vehicle_make_model_dataset). This dataset can be accessed [here](https://boozallen.sharepoint.com/:u:/r/sites/MERGEN/Shared%20Documents/Data/scraped_images.zip?csf=1&web=1&e=pR2BPO).
 
 ### How classes are defined
 We define a class as a string concatenation of make and model. This entails pooling all years that a particular vehicle model was manufactured. Alternatively, we could treat each make-model-year as a distinct class. We opted for the former for several reasons:
@@ -208,7 +208,7 @@ We define a class as a string concatenation of make and model. This entails pool
 <br> </br>
 2. This would require significantly more data to ensure adequate image counts per class
 <br> </br>
-3. On the one hand, variation *within* make-models over time due to generational updates may degrade predictions. On the other, however, this may pale in comparison to differences *between* make-models. [Multivariate regression analyses](https://github.boozallencsn.com/MERGEN/vehicle_make_model_classifier/blob/main/results/TestSetAnalysis.ipynb) of a holdout set from our training images suggest the number of distinct years per make-model is not significantly related to differences in the F1-score, suggesting pooling years does not harm performance
+3. On the one hand, variation *within* make-models over time due to generational updates may degrade predictions. On the other, however, this may pale in comparison to differences *between* make-models. [Multivariate regression analyses](./results/TestSetAnalysis.ipynb) of a holdout set from our training images suggest the number of distinct years per make-model is not significantly related to differences in the F1-score, suggesting pooling years does not harm performance
 
 Another more promising strategy would be to group make-models into vehicle generations. We looked into this possibility; however, we found no readily-available datasets containing this information. Given the project timeline and budget, we decided against this.
 
