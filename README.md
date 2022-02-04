@@ -25,7 +25,7 @@
     - [Summary of experiments](#summary-of-experiments)
 
 # Introduction
-The code in this repository develops a TensorFlow Keras computer vision model to classify passenger vehicle makes (i.e. manufacturer) and models. 
+The code in this repository develops a TensorFlow Keras computer vision model to classify passenger vehicle makes/manufacturers and models. 
 
 This vehicle classifier is the *third model* in a three-part image classification pipeline of motor vehicle makes and models: 1) images are output from a thermal camera and supplied to a [trained cGAN model for conversion to the visible spectrum](https://github.boozallencsn.com/MERGEN/GAN); 2) the [YOLOv5 algorithm](https://github.com/ultralytics/yolov5) is used on converted visible images to generate bounding box coordinates around any passenger motor vehicles present in the image; 3) images are cropped to the YOLOv5 bounding box area and the make-model of the vehicle is classified using code in this repository. A mockup of this workflow can be found in the [vehicle_image_pipeline](https://github.boozallencsn.com/MERGEN/vehicle_image_pipeline) repository. The actual image pipeline will be run on an NVIDIA Jetson device and is still in development.
 
@@ -43,15 +43,6 @@ We train our vehicle make-model classifier using a large (n=664,678), custom dat
 Clone this repository
 
     git clone git@github.boozallencsn.com:MERGEN/vehicle_make_model_classifier.git
-
-Set up Python virtual environment
-
-    pip install -r requirements.txt
-
-Pull Docker image
-
-    docker pull king0759/tf2_gpu_jupyter_mpl:v3
-
 
 # Running the code
 
@@ -129,7 +120,7 @@ We use Booz Allen's Westborough CSN cluster, which runs has 4 GeForce RTX 2080 T
 - GPU 2: GPU-0c5076b3-fe4a-0cd8-e4b7-71c2037933c0
 - GPU 3: GPU-3c51591d-cfdb-f87c-ece8-8dcfdc81e67a
 
-Training are stored on the cluster at `/home/kingj/scraped_images`. Currently, no test data are stored on the GPU server.
+Training and test data are not currently stored on this GPU cluster. They can be found on [OneDrive](https://boozallen.sharepoint.com/:f:/r/sites/MERGEN/Shared%20Documents/Data?csf=1&web=1&e=f8ecdv) and copied to the GPU.
 
 
 # Docker
@@ -142,25 +133,25 @@ This has been removed to save HD space. To re-create this follow the instruction
 This has been removed to save HD space. To re-create this follow the instructions to create new empty docker volume in [Docker_Linux_HELPME](Docker_Linux_HELPME.md)
 
 ### Docker image
-For this code, as well as the GAN model, the following image was used:
+For this code, as well as the GAN model, the following Docker image was used:
 
     king0759/tf2_gpu_jupyter_mpl:v3
 
 This (admittedly bloated) Docker image contains the packages listed in `requirements.txt`. Not all of the packages listed in this requirements file are strictly necessary for the code in this repository though.
 
 # Run model using Docker
-To run the classifier using an ResNet50 layer, for example, in a detached Docker container, enter:
+To run the classifier using an ResNet50 layer, for example, in an interactive Docker container, enter:
 
 ## Training example
     docker run -it \
-        --name make_model_classifier \
-        --rm -d \
-        --mount type=bind,source=/home/kingj/scripts,target=/scripts \
-        --mount source=MERGEN_Make_Model_data,target=/data \
-        --mount source=MERGEN_Make_Model_output,target=/output \
-        --gpus device=GPU-7a7c102c-5f71-a0fd-2ac0-f45a63c82dc5 \
+        --name <container_name> \
+        --rm \
+        --mount type=bind,source=<path_to_scripts_dir>,target=/scripts \
+        --mount source=<data_docker_volume>,target=/data \
+        --mount source=<output_docker_volumet>,target=/output \
+        --gpus device=<GPU_ID> \
         king0759/tf2_gpu_jupyter_mpl:v3 python3 ./scripts/MakeModelClassifier.py \
-        --train --data=/data --img-registry=/scripts/Bboxes.csv --epochs=130 \
+        --train --data=/data --img-registry=<path_to_img_registry> --epochs=130 \
         --output=/output --logging='true' --save-weights='true' --dropout=0.25 \
         --patience=10 --batch-size=256 --units2=4096 --units1=2048 \
         --model='resnet' --resnet-size='50' --min-class-img-count=0 \
@@ -168,17 +159,36 @@ To run the classifier using an ResNet50 layer, for example, in a detached Docker
 
 ### Explanation
 - `docker run`: starts a new container
-- `-it`: runs the container in interactive mode
-- `--name make_model_classifier`: specifies the container name as 'make_model_classifier'
-- `-d`: run the container detached. To work interactively in the container omit this
+
+
+- `-it`: runs the container in interactive mode. To run in detached mode substitute this with `-d`
+
+
+- `--name <container_name>`: specifies the container name
+
+
 - `--rm`: removes the container at the end of execution. Note - since output is stored in a volume this persists beyond the life of the container. It's also good practice to remove containers you're not using to reduce HD space
-- `--mount type=bind,source=/home/kingj/scripts,target=/scripts`: directly mount the `/home/kingj/scripts` directory, as `/scripts` within the container. Change the source and target directories as needed
-- `--mount source=MERGEN_Make_Model_data,target=/data`: mounts the now deleted data volume, `MERGEN_Make_Model_data` as `/data` within the container
-- `--mount source=MERGEN_Make_Model_output,target=/output`: mounts the now deleted output volume
-- `--gpus device=GPU-3c51591d-cfdb-f87c-ece8-8dcfdc81e67a`: Specifies a particular GPU to use. To use all GPUs change this to `--gpus all`
+
+
+- `--mount type=bind,source=<path_to_scripts_dir>,target=/scripts`: mounts the directory specified containing scripts as `/scripts` within the container. This should be wherever you cloned this repository to
+
+
+- `--mount source=<data_docker_volume>,target=/data`: mounts the user-specified Docker volume containing the training or test data as `/data` within the container
+
+
+- `--mount source=<output_docker_volume>,target=/output`: mounts the user-specified Docker volume as `/output` within the container. It's good to use a separate volume from data to store the output
+
+
+- `--gpus device=<GPU_ID>`: Specifies a particular GPU to use. E.g. for GPU #0 insert 'GPU-8121da2f-b1c3-d231-a9ab-7d6f598ba2dd'. To use all GPUs change this to `--gpus all`
+
+
 - `king0759/tf2_gpu_jupyter_mpl:v3`: container image. If not stored locally this will be downloaded from Docker Hub
+
+
 - `python3`: specifies the container should be instantated using Python. To instead instantiate using Bash enter `/bin/bash` or omit entirely (this is the default for this Docker image). Note - the software available in a container depends on the container image
-- `./scripts/MakeModelClassifier.py --train --data=/data --img-registry=/scripts/Bboxes.csv --epochs=130 --output=/output --logging='true' --save-weights='true' --dropout=0.25 --patience=10 --batch-size=256 --units2=4096 --units1=2048 --model='resnet' --resnet-size='50' --min-class-img-count=0 --learning-rate=0.0001 --optimizer='adam'`: instructs the container to train the model with the supplied arguments. If this is omitted the container will simply instantiate with the default or supplied program (i.e. Python or Bash) and await input
+
+
+- `./scripts/MakeModelClassifier.py --train --data=/data --img-registry=<path_to_img_registry> --epochs=130 --output=/output --logging='true' --save-weights='true' --dropout=0.25 --patience=10 --batch-size=256 --units2=4096 --units1=2048 --model='resnet' --resnet-size='50' --min-class-img-count=0 --learning-rate=0.0001 --optimizer='adam'`: instructs the container to train the model with the supplied arguments. If this is omitted the container will simply instantiate with the default or supplied program (i.e. Python or Bash) and await input
 
 
 # Vehicle make-model classifier
@@ -215,11 +225,11 @@ For this classification task we impose additional analytic restrictions on the t
 
 
 - We restrict to images whose bounding boxes are > 1st percentile of pixel area. The empirical cumulative distribution function (ECDF) of bounding box area for all images is [here](./data/training%20set/figs/ecdf_bounding_box_area.png). This reduced the total image count to 603,899 (90.86% of original images). The 1st percentile corresponded to 8,911 pixels, or approximately a 94 x 94 pixel image, which is comparably small. 
-  - Auxiliary analyses indicated that increasing this minimum object size threshold did not significantly affect classifier performance, while also reducing the number of sample images.
+  - Auxiliary analyses indicated that increasing this minimum object size threshold did not significantly affect classifier performance, though it did reduce the number of traning images.
 
 
 ### Image augmentation
-At training time we apply image augmentation to the training images only. Specifically, we apply random flipping, random brightness, random contrast, randomly convert 50% of images to grayscale (and back to 3-channels to ensure data shape consistency), random hue, and random saturation. Validation and test sets remain non-augmented, original images. Images are only augmented on read-in.
+At training time we apply image augmentation to the training images only. We apply random flipping, random brightness, random contrast, randomly convert 50% of images to grayscale (and back to 3-channels to ensure data shape consistency), random hue, and random saturation. Validation and test sets remain non-augmented, original images. Images are only augmented on read-in.
 
 ### Manufacturers in data
 
